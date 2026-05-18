@@ -34,6 +34,10 @@ test('flow registry exposes canonical flow and target metadata', () => {
     flowRegistry.getTargetOptions('openai').map((entry) => entry.id),
     ['cpa', 'sub2api', 'codex2api']
   );
+  assert.deepEqual(
+    flowRegistry.getSettingsGroupDefinition('openai-plus')?.rowIds,
+    ['row-plus-mode', 'row-plus-payment-method', 'row-plus-account-access-strategy']
+  );
   assert.equal(flowRegistry.getPublicationTargetDefinition('kiro', 'kiro-rs')?.label, 'kiro.rs');
 });
 
@@ -48,6 +52,7 @@ test('settings schema normalizes view input into canonical nested namespaces', (
     ipProxyEnabled: true,
     ipProxyService: '711proxy',
     customPassword: 'SharedSecret123!',
+    plusAccountAccessStrategy: 'sub2api_codex_session',
     kiroRsUrl: 'https://kiro.example.com/admin',
     kiroRsKey: 'secret-key',
     stepExecutionRangeByFlow: {
@@ -61,6 +66,7 @@ test('settings schema normalizes view input into canonical nested namespaces', (
   assert.equal(normalized.services.proxy.enabled, true);
   assert.equal(normalized.services.account.customPassword, 'SharedSecret123!');
   assert.equal(normalized.flows.openai.integrationTargetId, 'sub2api');
+  assert.equal(normalized.flows.openai.plus.plusAccountAccessStrategy, 'sub2api_codex_session');
   assert.equal(normalized.flows.kiro.targetId, 'kiro-rs');
   assert.equal(normalized.flows.kiro.targets['kiro-rs'].baseUrl, 'https://kiro.example.com/admin');
   assert.equal(normalized.flows.kiro.targets['kiro-rs'].apiKey, 'secret-key');
@@ -79,6 +85,7 @@ test('settings schema can project canonical state into a read view without legac
     kiroTargetId: 'kiro-rs',
     kiroRsUrl: 'https://kiro.example.com/admin',
     kiroRsKey: 'key-123',
+    plusAccountAccessStrategy: 'sub2api_codex_session',
   });
   const view = schema.buildSettingsView(normalized);
 
@@ -88,6 +95,7 @@ test('settings schema can project canonical state into a read view without legac
   assert.equal(view.panelMode, 'cpa');
   assert.equal(view.kiroRsUrl, 'https://kiro.example.com/admin');
   assert.equal(view.kiroRsKey, 'key-123');
+  assert.equal(view.plusAccountAccessStrategy, 'sub2api_codex_session');
   assert.equal(view.settingsSchemaVersion, 4);
   assert.equal(view.settingsState.activeFlowId, 'kiro');
 });

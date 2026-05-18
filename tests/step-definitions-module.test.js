@@ -254,6 +254,87 @@ test('step definitions module exposes ordered normal and Plus step metadata', ()
   assert.equal(gpcSteps[6].title, '等待 GPC 任务完成');
 });
 
+test('Plus session strategy swaps the OAuth tail for a single SUB2API import node', () => {
+  const source = fs.readFileSync('data/step-definitions.js', 'utf8');
+  const globalScope = {};
+  const api = new Function('self', `${source}; return self.MultiPageStepDefinitions;`)(globalScope);
+  const forbiddenTailKeys = [
+    'oauth-login',
+    'fetch-login-code',
+    'post-login-phone-verification',
+    'confirm-oauth',
+    'platform-verify',
+  ];
+
+  [
+    {
+      label: 'paypal',
+      options: {
+        plusModeEnabled: true,
+        plusPaymentMethod: 'paypal',
+        plusAccountAccessStrategy: 'sub2api_codex_session',
+      },
+      previousNodeId: 'plus-checkout-return',
+      expectedStepIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    },
+    {
+      label: 'gopay',
+      options: {
+        plusModeEnabled: true,
+        plusPaymentMethod: 'gopay',
+        plusAccountAccessStrategy: 'sub2api_codex_session',
+      },
+      previousNodeId: 'gopay-subscription-confirm',
+      expectedStepIds: [1, 2, 3, 4, 5, 6, 7, 10],
+    },
+    {
+      label: 'gpc-helper',
+      options: {
+        plusModeEnabled: true,
+        plusPaymentMethod: 'gpc-helper',
+        plusAccountAccessStrategy: 'sub2api_codex_session',
+      },
+      previousNodeId: 'plus-checkout-billing',
+      expectedStepIds: [1, 2, 3, 4, 5, 6, 7, 10],
+    },
+  ].forEach(({ label, options, previousNodeId, expectedStepIds }) => {
+    const steps = api.getSteps(options);
+    const nodes = api.getNodes(options);
+    const stepKeys = steps.map((step) => step.key);
+    const nodeIds = nodes.map((node) => node.nodeId);
+    const previousNode = nodes.find((node) => node.nodeId === previousNodeId);
+    const sessionImportNode = nodes.find((node) => node.nodeId === 'sub2api-session-import');
+
+    assert.equal(stepKeys.at(-1), 'sub2api-session-import', `${label} should end with session import`);
+    assert.equal(nodeIds.at(-1), 'sub2api-session-import', `${label} node order should end with session import`);
+    forbiddenTailKeys.forEach((key) => {
+      assert.equal(stepKeys.includes(key), false, `${label} should not keep ${key} in session mode`);
+      assert.equal(nodeIds.includes(key), false, `${label} nodes should not keep ${key} in session mode`);
+    });
+    assert.deepStrictEqual(api.getStepIds(options), expectedStepIds, `${label} step ids should follow the new tail`);
+    assert.equal(api.getLastStepId(options), expectedStepIds.at(-1), `${label} last step id should match session import`);
+    assert.deepStrictEqual(previousNode?.next, ['sub2api-session-import'], `${label} previous node should link to session import`);
+    assert.deepStrictEqual(sessionImportNode?.next, [], `${label} session import should be terminal`);
+  });
+});
+
+test('Plus phone signup never switches to SUB2API session tail even if the requested strategy is session import', () => {
+  const source = fs.readFileSync('data/step-definitions.js', 'utf8');
+  const globalScope = {};
+  const api = new Function('self', `${source}; return self.MultiPageStepDefinitions;`)(globalScope);
+  const steps = api.getSteps({
+    plusModeEnabled: true,
+    plusPaymentMethod: 'paypal',
+    signupMethod: 'phone',
+    plusAccountAccessStrategy: 'sub2api_codex_session',
+  });
+  const stepKeys = steps.map((step) => step.key);
+
+  assert.equal(stepKeys.includes('sub2api-session-import'), false);
+  assert.equal(stepKeys.includes('oauth-login'), true);
+  assert.equal(stepKeys.includes('platform-verify'), true);
+});
+
 test('sidepanel html loads shared step definitions before sidepanel bootstrap', () => {
   const html = fs.readFileSync('sidepanel/sidepanel.html', 'utf8');
   const definitionsIndex = html.indexOf('<script src="../data/step-definitions.js"></script>');

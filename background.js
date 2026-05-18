@@ -55,6 +55,7 @@ importScripts(
   'background/steps/paypal-approve.js',
   'background/steps/gopay-approve.js',
   'background/steps/plus-return-confirm.js',
+  'background/steps/sub2api-session-import.js',
   'background/steps/oauth-login.js',
   'background/steps/fetch-login-code.js',
   'background/steps/confirm-oauth.js',
@@ -94,6 +95,12 @@ const PLUS_PAYPAL_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   plusModeEnabled: true,
   plusPaymentMethod: 'paypal',
 }) || NORMAL_STEP_DEFINITIONS;
+const PLUS_PAYPAL_SUB2API_SESSION_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
+  activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
+  plusModeEnabled: true,
+  plusPaymentMethod: 'paypal',
+  plusAccountAccessStrategy: PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION,
+}) || PLUS_PAYPAL_STEP_DEFINITIONS;
 const PLUS_PAYPAL_PHONE_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
   plusModeEnabled: true,
@@ -112,6 +119,12 @@ const PLUS_GOPAY_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   plusModeEnabled: true,
   plusPaymentMethod: 'gopay',
 }) || PLUS_PAYPAL_STEP_DEFINITIONS;
+const PLUS_GOPAY_SUB2API_SESSION_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
+  activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
+  plusModeEnabled: true,
+  plusPaymentMethod: 'gopay',
+  plusAccountAccessStrategy: PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION,
+}) || PLUS_GOPAY_STEP_DEFINITIONS;
 const PLUS_GOPAY_PHONE_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
   plusModeEnabled: true,
@@ -130,6 +143,12 @@ const PLUS_GPC_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   plusModeEnabled: true,
   plusPaymentMethod: 'gpc-helper',
 }) || PLUS_GOPAY_STEP_DEFINITIONS;
+const PLUS_GPC_SUB2API_SESSION_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
+  activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
+  plusModeEnabled: true,
+  plusPaymentMethod: 'gpc-helper',
+  plusAccountAccessStrategy: PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION,
+}) || PLUS_GPC_STEP_DEFINITIONS;
 const PLUS_GPC_PHONE_STEP_DEFINITIONS = self.MultiPageStepDefinitions?.getSteps?.({
   activeFlowId: DEFAULT_ACTIVE_FLOW_ID,
   plusModeEnabled: true,
@@ -165,12 +184,15 @@ const ALL_STEP_DEFINITIONS = (() => {
     ...NORMAL_PHONE_STEP_DEFINITIONS,
     ...NORMAL_PHONE_BOUND_EMAIL_RELOGIN_STEP_DEFINITIONS,
     ...PLUS_PAYPAL_STEP_DEFINITIONS,
+    ...PLUS_PAYPAL_SUB2API_SESSION_STEP_DEFINITIONS,
     ...PLUS_PAYPAL_PHONE_STEP_DEFINITIONS,
     ...PLUS_PAYPAL_PHONE_BOUND_EMAIL_RELOGIN_STEP_DEFINITIONS,
     ...PLUS_GOPAY_STEP_DEFINITIONS,
+    ...PLUS_GOPAY_SUB2API_SESSION_STEP_DEFINITIONS,
     ...PLUS_GOPAY_PHONE_STEP_DEFINITIONS,
     ...PLUS_GOPAY_PHONE_BOUND_EMAIL_RELOGIN_STEP_DEFINITIONS,
     ...PLUS_GPC_STEP_DEFINITIONS,
+    ...PLUS_GPC_SUB2API_SESSION_STEP_DEFINITIONS,
     ...PLUS_GPC_PHONE_STEP_DEFINITIONS,
     ...PLUS_GPC_PHONE_BOUND_EMAIL_RELOGIN_STEP_DEFINITIONS,
   ];
@@ -632,6 +654,8 @@ const FIVE_SIM_OPERATOR = DEFAULT_FIVE_SIM_OPERATOR;
 const PLUS_PAYMENT_METHOD_PAYPAL = 'paypal';
 const PLUS_PAYMENT_METHOD_GOPAY = 'gopay';
 const PLUS_PAYMENT_METHOD_GPC_HELPER = 'gpc-helper';
+const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
+const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';
 const DEFAULT_PLUS_PAYMENT_METHOD = PLUS_PAYMENT_METHOD_PAYPAL;
 const DISPLAY_TIMEZONE = 'Asia/Shanghai';
 const MICROSOFT_TOKEN_DNR_RULE_ID = 1001;
@@ -722,34 +746,108 @@ function getSignupMethodForStepDefinitions(state = {}) {
   return normalizeSignupMethod(state?.resolvedSignupMethod || state?.signupMethod);
 }
 
+function buildResolvedStepDefinitionState(state = {}) {
+  const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID === 'string' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
+  const requestedActiveFlowId = String(state?.activeFlowId || state?.flowId || '').trim().toLowerCase() || defaultFlowId;
+  const requestedSignupMethod = getSignupMethodForStepDefinitions(state);
+  const plusModeEnabled = isPlusModeState(state);
+  const plusPaymentMethod = normalizePlusPaymentMethod(state?.plusPaymentMethod);
+  const capabilityState = typeof resolveCurrentFlowCapabilities === 'function'
+    ? resolveCurrentFlowCapabilities({
+      ...state,
+      activeFlowId: requestedActiveFlowId,
+      flowId: requestedActiveFlowId,
+      plusModeEnabled,
+      plusPaymentMethod,
+      signupMethod: requestedSignupMethod,
+    }, {
+      activeFlowId: requestedActiveFlowId,
+      panelMode: state?.panelMode,
+      signupMethod: requestedSignupMethod,
+    })
+    : null;
+  const stepDefinitionOptions = capabilityState?.stepDefinitionOptions || {};
+  const resolvedActiveFlowId = String(stepDefinitionOptions.activeFlowId || requestedActiveFlowId).trim().toLowerCase() || defaultFlowId;
+  const resolvedSignupMethod = normalizeSignupMethod(
+    stepDefinitionOptions.signupMethod
+    || capabilityState?.effectiveSignupMethod
+    || requestedSignupMethod
+  );
+
+  return {
+    ...state,
+    activeFlowId: resolvedActiveFlowId,
+    flowId: resolvedActiveFlowId,
+    panelMode: stepDefinitionOptions.panelMode || capabilityState?.effectivePanelMode || state?.panelMode,
+    targetId: stepDefinitionOptions.targetId || capabilityState?.effectiveTargetId || state?.targetId,
+    plusModeEnabled: stepDefinitionOptions.plusModeEnabled === undefined
+      ? plusModeEnabled
+      : Boolean(stepDefinitionOptions.plusModeEnabled),
+    plusPaymentMethod,
+    plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(
+      stepDefinitionOptions.plusAccountAccessStrategy
+      ?? capabilityState?.effectivePlusAccountAccessStrategy
+      ?? state?.plusAccountAccessStrategy
+    ),
+    signupMethod: resolvedSignupMethod,
+    resolvedSignupMethod: resolvedSignupMethod,
+    phoneSignupReloginAfterBindEmailEnabled: Boolean(state?.phoneSignupReloginAfterBindEmailEnabled),
+  };
+}
+
 function getStepDefinitionsForState(state = {}) {
+  const resolvedState = buildResolvedStepDefinitionState(state);
   const rootScope = typeof self !== 'undefined' ? self : globalThis;
   if (rootScope.MultiPageStepDefinitions?.getSteps) {
     const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID === 'string' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
-    const activeFlowId = String(state?.activeFlowId || '').trim().toLowerCase() || defaultFlowId;
+    const activeFlowId = String(resolvedState?.activeFlowId || '').trim().toLowerCase() || defaultFlowId;
     const definitions = rootScope.MultiPageStepDefinitions.getSteps({
       activeFlowId,
-      plusModeEnabled: isPlusModeState(state),
-      plusPaymentMethod: normalizePlusPaymentMethod(state?.plusPaymentMethod),
-      signupMethod: getSignupMethodForStepDefinitions(state),
-      phoneSignupReloginAfterBindEmailEnabled: Boolean(state?.phoneSignupReloginAfterBindEmailEnabled),
+      plusModeEnabled: Boolean(resolvedState?.plusModeEnabled),
+      plusPaymentMethod: normalizePlusPaymentMethod(resolvedState?.plusPaymentMethod),
+      plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(resolvedState?.plusAccountAccessStrategy),
+      signupMethod: getSignupMethodForStepDefinitions(resolvedState),
+      phoneSignupReloginAfterBindEmailEnabled: Boolean(resolvedState?.phoneSignupReloginAfterBindEmailEnabled),
     });
     if (Array.isArray(definitions)) {
       return definitions;
     }
   }
-  const activeFlowId = String(state?.activeFlowId || '').trim().toLowerCase();
+  const activeFlowId = String(resolvedState?.activeFlowId || '').trim().toLowerCase();
   if (activeFlowId && activeFlowId !== DEFAULT_ACTIVE_FLOW_ID) {
     return [];
   }
-  if (!isPlusModeState(state)) {
+  if (!Boolean(resolvedState?.plusModeEnabled)) {
     return NORMAL_STEP_DEFINITIONS;
   }
-  const paymentMethod = normalizePlusPaymentMethod(state?.plusPaymentMethod);
+  const paymentMethod = normalizePlusPaymentMethod(resolvedState?.plusPaymentMethod);
+  const signupMethod = getSignupMethodForStepDefinitions(resolvedState);
+  const plusAccountAccessStrategy = normalizePlusAccountAccessStrategy(resolvedState?.plusAccountAccessStrategy);
   if (paymentMethod === PLUS_PAYMENT_METHOD_GPC_HELPER) {
+    if (
+      signupMethod === SIGNUP_METHOD_EMAIL
+      && plusAccountAccessStrategy === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    ) {
+      return PLUS_GPC_SUB2API_SESSION_STEP_DEFINITIONS;
+    }
     return PLUS_GPC_STEP_DEFINITIONS;
   }
-  return paymentMethod === PLUS_PAYMENT_METHOD_GOPAY ? PLUS_GOPAY_STEP_DEFINITIONS : PLUS_PAYPAL_STEP_DEFINITIONS;
+  if (paymentMethod === PLUS_PAYMENT_METHOD_GOPAY) {
+    if (
+      signupMethod === SIGNUP_METHOD_EMAIL
+      && plusAccountAccessStrategy === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    ) {
+      return PLUS_GOPAY_SUB2API_SESSION_STEP_DEFINITIONS;
+    }
+    return PLUS_GOPAY_STEP_DEFINITIONS;
+  }
+  if (
+    signupMethod === SIGNUP_METHOD_EMAIL
+    && plusAccountAccessStrategy === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+  ) {
+    return PLUS_PAYPAL_SUB2API_SESSION_STEP_DEFINITIONS;
+  }
+  return PLUS_PAYPAL_STEP_DEFINITIONS;
 }
 
 function getStepIdsForState(state = {}) {
@@ -806,17 +904,18 @@ function getStepIdByKeyForState(stepKey, state = {}) {
 }
 
 function getNodeDefinitionsForState(state = {}) {
+  const resolvedState = buildResolvedStepDefinitionState(state);
   if (workflowEngine?.getNodesForState) {
-    return workflowEngine.getNodesForState(state);
+    return workflowEngine.getNodesForState(resolvedState);
   }
   if (self.MultiPageStepDefinitions?.getNodes) {
     return self.MultiPageStepDefinitions.getNodes({
-      ...state,
-      activeFlowId: state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID,
-      flowId: state?.flowId || state?.activeFlowId || DEFAULT_ACTIVE_FLOW_ID,
+      ...resolvedState,
+      activeFlowId: resolvedState?.activeFlowId || resolvedState?.flowId || DEFAULT_ACTIVE_FLOW_ID,
+      flowId: resolvedState?.flowId || resolvedState?.activeFlowId || DEFAULT_ACTIVE_FLOW_ID,
     });
   }
-  return getStepDefinitionsForState(state)
+  return getStepDefinitionsForState(resolvedState)
     .map((definition) => ({
       nodeId: String(definition?.key || '').trim(),
       displayOrder: Number.isFinite(Number(definition?.id)) ? Number(definition.id) : Number(definition?.order),
@@ -827,19 +926,21 @@ function getNodeDefinitionsForState(state = {}) {
 }
 
 function getNodeIdsForState(state = {}) {
+  const resolvedState = buildResolvedStepDefinitionState(state);
   if (workflowEngine?.getNodeIdsForState) {
-    return workflowEngine.getNodeIdsForState(state);
+    return workflowEngine.getNodeIdsForState(resolvedState);
   }
-  return getNodeDefinitionsForState(state).map((definition) => definition.nodeId).filter(Boolean);
+  return getNodeDefinitionsForState(resolvedState).map((definition) => definition.nodeId).filter(Boolean);
 }
 
 function getNodeDefinitionForState(nodeId, state = {}) {
   const normalizedNodeId = String(nodeId || '').trim();
   if (!normalizedNodeId) return null;
+  const resolvedState = buildResolvedStepDefinitionState(state);
   if (workflowEngine?.getNodeById) {
-    return workflowEngine.getNodeById(normalizedNodeId, state);
+    return workflowEngine.getNodeById(normalizedNodeId, resolvedState);
   }
-  return getNodeDefinitionsForState(state).find((definition) => definition.nodeId === normalizedNodeId) || null;
+  return getNodeDefinitionsForState(resolvedState).find((definition) => definition.nodeId === normalizedNodeId) || null;
 }
 
 function getLastNodeIdForState(state = {}) {
@@ -947,6 +1048,7 @@ const PERSISTED_SETTING_DEFAULTS = {
   customPassword: '',
   plusModeEnabled: false,
   plusPaymentMethod: DEFAULT_PLUS_PAYMENT_METHOD,
+  plusAccountAccessStrategy: 'oauth',
   paypalEmail: '',
   paypalPassword: '',
   currentPayPalAccountId: '',
@@ -1120,6 +1222,7 @@ const SETTINGS_SCHEMA_VIEW_KEYS = Object.freeze([
   'phoneSignupReloginAfterBindEmailEnabled',
   'plusModeEnabled',
   'plusPaymentMethod',
+  'plusAccountAccessStrategy',
   'mailProvider',
   'ipProxyEnabled',
   'ipProxyService',
@@ -1691,6 +1794,13 @@ function normalizePlusPaymentMethod(value = '') {
     return PLUS_PAYMENT_METHOD_GPC_HELPER;
   }
   return normalized === PLUS_PAYMENT_METHOD_GOPAY ? PLUS_PAYMENT_METHOD_GOPAY : PLUS_PAYMENT_METHOD_PAYPAL;
+}
+
+function normalizePlusAccountAccessStrategy(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    ? PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    : PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
 }
 
 function normalizeFiveSimCountryId(value, fallback = FIVE_SIM_COUNTRY_ID) {
@@ -2866,6 +2976,10 @@ function normalizePersistentSettingValue(key, value) {
       return normalizeSignupMethod(value);
     case 'plusPaymentMethod':
       return normalizePlusPaymentMethod(value);
+    case 'plusAccountAccessStrategy':
+      return String(value || '').trim().toLowerCase() === 'sub2api_codex_session'
+        ? 'sub2api_codex_session'
+        : 'oauth';
     case 'paypalEmail':
       return String(value || '').trim();
     case 'paypalPassword':
@@ -10241,6 +10355,7 @@ const AUTO_RUN_BACKGROUND_COMPLETED_STEP_KEYS = new Set([
   'plus-checkout-billing',
   'paypal-approve',
   'plus-checkout-return',
+  'sub2api-session-import',
   'oauth-login',
   'fetch-login-code',
   'post-login-phone-verification',
@@ -11339,6 +11454,7 @@ const AUTO_RUN_NODE_DELAYS = Object.freeze({
   'gopay-subscription-confirm': 2000,
   'paypal-approve': 2000,
   'plus-checkout-return': 1000,
+  'sub2api-session-import': 0,
   'oauth-login': 2000,
   'fetch-login-code': 2000,
   'confirm-oauth': 1000,
@@ -13096,6 +13212,7 @@ const goPayManualConfirmExecutor = self.MultiPageBackgroundGoPayManualConfirm?.c
   broadcastDataUpdate,
   chrome,
   getTabId,
+  getNodeIdsForState,
   isTabAlive,
   registerTab,
   createAutomationTab,
@@ -13142,6 +13259,21 @@ const plusReturnConfirmExecutor = self.MultiPageBackgroundPlusReturnConfirm?.cre
   setState,
   sleepWithStop,
   waitForTabUrlMatchUntilStopped,
+});
+const sub2ApiSessionImportExecutor = self.MultiPageBackgroundSub2ApiSessionImport?.createSub2ApiSessionImportExecutor({
+  addLog,
+  chrome,
+  completeNodeFromBackground,
+  ensureContentScriptReadyOnTabUntilStopped,
+  getTabId,
+  isTabAlive,
+  normalizeSub2ApiUrl,
+  registerTab,
+  sendTabMessageUntilStopped,
+  sleepWithStop,
+  throwIfStopped,
+  waitForTabCompleteUntilStopped,
+  DEFAULT_SUB2API_GROUP_NAME,
 });
 const kiroRegisterRunner = self.MultiPageBackgroundKiroRegisterRunner?.createKiroRegisterRunner({
   addLog,
@@ -13290,6 +13422,7 @@ const stepExecutorsByKey = {
     ? goPayApproveExecutor.executeGoPayApprove(state)
     : payPalApproveExecutor.executePayPalApprove(state),
   'plus-checkout-return': (state) => plusReturnConfirmExecutor.executePlusReturnConfirm(state),
+  'sub2api-session-import': (state) => sub2ApiSessionImportExecutor.executeSub2ApiSessionImport(state),
   'oauth-login': (state) => step7Executor.executeStep7(state),
   'fetch-login-code': (state) => step8Executor.executeStep8(state),
   'post-login-phone-verification': (state) => step8Executor.executePostLoginPhoneVerification(state),
@@ -13956,6 +14089,7 @@ async function getPostStep6AutoRestartDecision(step, error) {
   const errorMessage = getErrorMessage(error);
   const shouldForceRestartFromStep7 = /restart step 7 with a new number/i.test(errorMessage);
   const latestState = await getState();
+  const explicitAuthChainStartStep = findStepIdByKeyForState('oauth-login', latestState);
   const authChainStartStep = typeof getAuthChainStartStepId === 'function'
     ? getAuthChainStartStepId(latestState)
     : FINAL_OAUTH_CHAIN_START_STEP;
@@ -13963,6 +14097,20 @@ async function getPostStep6AutoRestartDecision(step, error) {
     ? getLastStepIdForState(latestState)
     : (typeof LAST_STEP_ID === 'number' ? LAST_STEP_ID : 10);
   const currentNodeKey = resolveStepKey(normalizedStep, latestState);
+  const currentNodeIsAuthChain = typeof isAuthChainNode === 'function'
+    ? isAuthChainNode(currentNodeKey)
+    : [
+      'oauth-login',
+      'fetch-login-code',
+      'post-login-phone-verification',
+      'bind-email',
+      'fetch-bind-email-code',
+      'relogin-bound-email',
+      'fetch-bound-email-login-code',
+      'post-bound-email-phone-verification',
+      'confirm-oauth',
+      'platform-verify',
+    ].includes(currentNodeKey);
   const confirmOauthStep = findStepIdByKeyForState('confirm-oauth', latestState);
   const boundEmailReloginStep = findStepIdByKeyForState('relogin-bound-email', latestState);
   const isBoundEmailReloginTailStep = [
@@ -13981,6 +14129,17 @@ async function getPostStep6AutoRestartDecision(step, error) {
       ? boundEmailReloginStep
       : authChainStartStep);
   if (isPhoneSmsPlatformRateLimitFailure(errorMessage)) {
+    return {
+      shouldRestart: false,
+      blockedByAddPhone: false,
+      forcedByPhoneVerificationTimeout: false,
+      restartStep: authChainStartStep,
+      errorMessage,
+      authState: null,
+    };
+  }
+
+  if (!Number.isFinite(explicitAuthChainStartStep) || explicitAuthChainStartStep <= 0 || !currentNodeIsAuthChain) {
     return {
       shouldRestart: false,
       blockedByAddPhone: false,

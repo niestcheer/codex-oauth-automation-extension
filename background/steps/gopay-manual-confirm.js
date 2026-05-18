@@ -2,8 +2,42 @@
   root.MultiPageBackgroundGoPayManualConfirm = factory();
 })(typeof self !== 'undefined' ? self : globalThis, function createBackgroundGoPayManualConfirmModule() {
   const PLUS_CHECKOUT_SOURCE = 'plus-checkout';
+  const GOPAY_CONFIRM_NODE_ID = 'gopay-subscription-confirm';
+  const SUB2API_SESSION_IMPORT_NODE_ID = 'sub2api-session-import';
   const DEFAULT_CONFIRM_TITLE = 'GoPay 订阅确认';
-  const DEFAULT_CONFIRM_MESSAGE = 'GoPay 订阅页已打开。请先手动完成订阅，完成后确认继续 OAuth 登录。';
+  const OAUTH_CONTINUATION_LABEL = 'OAuth 登录';
+  const SUB2API_SESSION_CONTINUATION_LABEL = '导入当前 ChatGPT 会话到 SUB2API';
+
+  function normalizeString(value = '') {
+    return String(value || '').trim();
+  }
+
+  function getContinuationActionLabel(state = {}, options = {}) {
+    const { getNodeIdsForState = null } = options;
+    if (typeof getNodeIdsForState === 'function') {
+      const nodeIds = getNodeIdsForState(state)
+        .map((nodeId) => normalizeString(nodeId))
+        .filter(Boolean);
+      const currentNodeId = normalizeString(state?.nodeId || GOPAY_CONFIRM_NODE_ID) || GOPAY_CONFIRM_NODE_ID;
+      const currentNodeIndex = nodeIds.indexOf(currentNodeId);
+      const nextNodeId = currentNodeIndex >= 0
+        ? normalizeString(nodeIds[currentNodeIndex + 1])
+        : '';
+
+      if (
+        nextNodeId === SUB2API_SESSION_IMPORT_NODE_ID
+        || (currentNodeIndex < 0 && nodeIds.includes(SUB2API_SESSION_IMPORT_NODE_ID))
+      ) {
+        return SUB2API_SESSION_CONTINUATION_LABEL;
+      }
+    }
+    return OAUTH_CONTINUATION_LABEL;
+  }
+
+  function buildDefaultConfirmMessage(state = {}, options = {}) {
+    const continuationActionLabel = getContinuationActionLabel(state, options);
+    return `GoPay 订阅页已打开。请先手动完成订阅，完成后确认继续${continuationActionLabel}。`;
+  }
 
   function createGoPayManualConfirmExecutor(deps = {}) {
     const {
@@ -12,6 +46,7 @@
       chrome,
       createAutomationTab = null,
       getTabId,
+      getNodeIdsForState = null,
       isTabAlive,
       registerTab,
       setState,
@@ -40,7 +75,7 @@
         }
       }
 
-      const checkoutUrl = String(state?.plusCheckoutUrl || '').trim();
+      const checkoutUrl = normalizeString(state?.plusCheckoutUrl);
       if (!checkoutUrl) {
         throw new Error('步骤 7：未检测到 GoPay 订阅页，请先执行步骤 6。');
       }
@@ -63,19 +98,21 @@
     }
 
     async function executeGoPayManualConfirm(state = {}) {
+      const visibleStep = Number(state?.visibleStep) || 7;
       const tabId = await resolveCheckoutTabId(state);
       if (chrome?.tabs?.update && tabId) {
         await chrome.tabs.update(tabId, { active: true }).catch(() => {});
       }
 
+      const continuationActionLabel = getContinuationActionLabel(state, { getNodeIdsForState });
       const payload = {
         plusCheckoutTabId: tabId,
         plusManualConfirmationPending: true,
         plusManualConfirmationRequestId: buildRequestId(),
-        plusManualConfirmationStep: 7,
+        plusManualConfirmationStep: visibleStep,
         plusManualConfirmationMethod: 'gopay',
         plusManualConfirmationTitle: DEFAULT_CONFIRM_TITLE,
-        plusManualConfirmationMessage: DEFAULT_CONFIRM_MESSAGE,
+        plusManualConfirmationMessage: buildDefaultConfirmMessage(state, { getNodeIdsForState }),
       };
 
       await setState(payload);
@@ -83,7 +120,10 @@
         broadcastDataUpdate(payload);
       }
 
-      await addLog('步骤 7：正在等待手动完成 GoPay 订阅，确认后继续 OAuth 登录。', 'info');
+      await addLog(
+        `步骤 ${visibleStep}：正在等待手动完成 GoPay 订阅，确认后继续${continuationActionLabel}。`,
+        'info'
+      );
     }
 
     return {

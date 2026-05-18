@@ -297,6 +297,299 @@ test('SAVE_SETTING broadcasts operation delay setting without background success
   assert.equal(logs.length, 0);
 });
 
+test('SAVE_SETTING rebuilds Plus node statuses when the account access strategy changes', async () => {
+  const source = fs.readFileSync('background/message-router.js', 'utf8');
+  const globalScope = { console };
+  const api = new Function('self', `${source}; return self.MultiPageBackgroundMessageRouter;`)(globalScope);
+  const broadcasts = [];
+  let state = {
+    plusModeEnabled: true,
+    plusPaymentMethod: 'paypal',
+    plusAccountAccessStrategy: 'oauth',
+    oauthUrl: 'https://oauth.example/current',
+    localhostUrl: 'http://localhost:38080/callback',
+    oauthFlowDeadlineAt: Date.now() + 60000,
+    oauthFlowDeadlineSourceUrl: 'https://oauth.example/current',
+    cpaOAuthState: 'cpa-state',
+    cpaManagementOrigin: 'https://cpa.example.com',
+    sub2apiSessionId: 'sub-session',
+    sub2apiOAuthState: 'sub-oauth-state',
+    sub2apiGroupId: 'group-id',
+    sub2apiGroupIds: ['group-id'],
+    sub2apiDraftName: 'draft-name',
+    sub2apiProxyId: 'proxy-id',
+    codex2apiSessionId: 'codex-session',
+    codex2apiOAuthState: 'codex-oauth-state',
+    plusManualConfirmationPending: true,
+    plusManualConfirmationRequestId: 'gopay-req',
+    plusManualConfirmationStep: 9,
+    plusManualConfirmationMethod: 'gopay',
+    plusManualConfirmationTitle: 'GoPay 订阅确认',
+    plusManualConfirmationMessage: '完成后继续 OAuth 登录。',
+    currentNodeId: 'confirm-oauth',
+    nodeStatuses: {
+      'open-chatgpt': 'completed',
+      'plus-checkout-create': 'completed',
+      'plus-checkout-billing': 'completed',
+      'paypal-approve': 'completed',
+      'plus-checkout-return': 'completed',
+      'oauth-login': 'completed',
+      'fetch-login-code': 'completed',
+      'post-login-phone-verification': 'completed',
+      'confirm-oauth': 'running',
+      'platform-verify': 'pending',
+    },
+  };
+
+  const router = api.createMessageRouter({
+    addLog: async () => {},
+    buildLuckmailSessionSettingsPayload: () => ({}),
+    buildPersistentSettingsPayload: (input = {}) => Object.prototype.hasOwnProperty.call(input, 'plusAccountAccessStrategy')
+      ? { plusAccountAccessStrategy: input.plusAccountAccessStrategy }
+      : {},
+    broadcastDataUpdate: (payload) => broadcasts.push(payload),
+    getNodeIdsForState: (nextState = {}) => (
+      String(nextState.plusAccountAccessStrategy || '').trim() === 'sub2api_codex_session'
+        ? [
+          'open-chatgpt',
+          'plus-checkout-create',
+          'plus-checkout-billing',
+          'paypal-approve',
+          'plus-checkout-return',
+          'sub2api-session-import',
+        ]
+        : [
+          'open-chatgpt',
+          'plus-checkout-create',
+          'plus-checkout-billing',
+          'paypal-approve',
+          'plus-checkout-return',
+          'oauth-login',
+          'fetch-login-code',
+          'post-login-phone-verification',
+          'confirm-oauth',
+          'platform-verify',
+        ]
+    ),
+    getState: async () => ({ ...state }),
+    getStepIdsForState: () => [],
+    setPersistentSettings: async (updates) => ({ ...updates }),
+    setState: async (updates) => {
+      state = { ...state, ...updates };
+    },
+  });
+
+  const response = await router.handleMessage({
+    type: 'SAVE_SETTING',
+    payload: {
+      plusAccountAccessStrategy: 'sub2api_codex_session',
+    },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(state.plusAccountAccessStrategy, 'sub2api_codex_session');
+  assert.equal(state.currentNodeId, '');
+  assert.equal(state.oauthUrl, null);
+  assert.equal(state.localhostUrl, null);
+  assert.equal(state.oauthFlowDeadlineAt, null);
+  assert.equal(state.oauthFlowDeadlineSourceUrl, null);
+  assert.equal(state.cpaOAuthState, null);
+  assert.equal(state.cpaManagementOrigin, null);
+  assert.equal(state.sub2apiSessionId, null);
+  assert.equal(state.sub2apiOAuthState, null);
+  assert.equal(state.sub2apiGroupId, null);
+  assert.deepStrictEqual(state.sub2apiGroupIds, []);
+  assert.equal(state.sub2apiDraftName, null);
+  assert.equal(state.sub2apiProxyId, null);
+  assert.equal(state.codex2apiSessionId, null);
+  assert.equal(state.codex2apiOAuthState, null);
+  assert.equal(state.plusManualConfirmationPending, false);
+  assert.equal(state.plusManualConfirmationRequestId, '');
+  assert.equal(state.plusManualConfirmationStep, 0);
+  assert.equal(state.plusManualConfirmationMethod, '');
+  assert.equal(state.plusManualConfirmationTitle, '');
+  assert.equal(state.plusManualConfirmationMessage, '');
+  assert.deepStrictEqual(state.nodeStatuses, {
+    'open-chatgpt': 'pending',
+    'plus-checkout-create': 'pending',
+    'plus-checkout-billing': 'pending',
+    'paypal-approve': 'pending',
+    'plus-checkout-return': 'pending',
+    'sub2api-session-import': 'pending',
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(state.nodeStatuses, 'oauth-login'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(state.nodeStatuses, 'platform-verify'), false);
+  assert.deepStrictEqual(broadcasts.at(-1), {
+    plusAccountAccessStrategy: 'sub2api_codex_session',
+    oauthUrl: null,
+    localhostUrl: null,
+    oauthFlowDeadlineAt: null,
+    oauthFlowDeadlineSourceUrl: null,
+    cpaOAuthState: null,
+    cpaManagementOrigin: null,
+    sub2apiSessionId: null,
+    sub2apiOAuthState: null,
+    sub2apiGroupId: null,
+    sub2apiGroupIds: [],
+    sub2apiDraftName: null,
+    sub2apiProxyId: null,
+    codex2apiSessionId: null,
+    codex2apiOAuthState: null,
+    plusManualConfirmationPending: false,
+    plusManualConfirmationRequestId: '',
+    plusManualConfirmationStep: 0,
+    plusManualConfirmationMethod: '',
+    plusManualConfirmationTitle: '',
+    plusManualConfirmationMessage: '',
+    nodeStatuses: {
+      'open-chatgpt': 'pending',
+      'plus-checkout-create': 'pending',
+      'plus-checkout-billing': 'pending',
+      'paypal-approve': 'pending',
+      'plus-checkout-return': 'pending',
+      'sub2api-session-import': 'pending',
+    },
+    currentNodeId: '',
+  });
+});
+
+test('SAVE_SETTING rebuilds Plus node statuses when panel mode forces the effective strategy back to OAuth', async () => {
+  const source = fs.readFileSync('background/message-router.js', 'utf8');
+  const globalScope = { console };
+  const api = new Function('self', `${source}; return self.MultiPageBackgroundMessageRouter;`)(globalScope);
+  const broadcasts = [];
+  let state = {
+    panelMode: 'sub2api',
+    plusModeEnabled: true,
+    plusPaymentMethod: 'paypal',
+    plusAccountAccessStrategy: 'sub2api_codex_session',
+    oauthUrl: 'https://oauth.example/current',
+    localhostUrl: 'http://localhost:38080/callback',
+    sub2apiSessionId: 'sub-session',
+    plusManualConfirmationPending: true,
+    plusManualConfirmationRequestId: 'gopay-req',
+    plusManualConfirmationStep: 9,
+    plusManualConfirmationMethod: 'gopay',
+    plusManualConfirmationTitle: 'GoPay 订阅确认',
+    plusManualConfirmationMessage: '完成后继续导入当前 ChatGPT 会话到 SUB2API。',
+    currentNodeId: 'sub2api-session-import',
+    nodeStatuses: {
+      'open-chatgpt': 'completed',
+      'plus-checkout-create': 'completed',
+      'plus-checkout-billing': 'completed',
+      'paypal-approve': 'completed',
+      'plus-checkout-return': 'completed',
+      'sub2api-session-import': 'running',
+    },
+  };
+
+  const router = api.createMessageRouter({
+    addLog: async () => {},
+    buildLuckmailSessionSettingsPayload: () => ({}),
+    buildPersistentSettingsPayload: (input = {}) => Object.prototype.hasOwnProperty.call(input, 'panelMode')
+      ? { panelMode: input.panelMode }
+      : {},
+    broadcastDataUpdate: (payload) => broadcasts.push(payload),
+    getNodeIdsForState: (nextState = {}) => (
+      String(nextState.panelMode || '').trim() === 'sub2api'
+      && String(nextState.plusAccountAccessStrategy || '').trim() === 'sub2api_codex_session'
+        ? [
+          'open-chatgpt',
+          'plus-checkout-create',
+          'plus-checkout-billing',
+          'paypal-approve',
+          'plus-checkout-return',
+          'sub2api-session-import',
+        ]
+        : [
+          'open-chatgpt',
+          'plus-checkout-create',
+          'plus-checkout-billing',
+          'paypal-approve',
+          'plus-checkout-return',
+          'oauth-login',
+          'fetch-login-code',
+          'post-login-phone-verification',
+          'confirm-oauth',
+          'platform-verify',
+        ]
+    ),
+    getState: async () => ({ ...state }),
+    getStepIdsForState: () => [],
+    setPersistentSettings: async (updates) => ({ ...updates }),
+    setState: async (updates) => {
+      state = { ...state, ...updates };
+    },
+  });
+
+  const response = await router.handleMessage({
+    type: 'SAVE_SETTING',
+    payload: {
+      panelMode: 'cpa',
+    },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(state.panelMode, 'cpa');
+  assert.equal(state.plusAccountAccessStrategy, 'sub2api_codex_session');
+  assert.equal(state.currentNodeId, '');
+  assert.equal(state.oauthUrl, null);
+  assert.equal(state.localhostUrl, null);
+  assert.equal(state.sub2apiSessionId, null);
+  assert.equal(state.plusManualConfirmationPending, false);
+  assert.equal(state.plusManualConfirmationMessage, '');
+  assert.deepStrictEqual(state.nodeStatuses, {
+    'open-chatgpt': 'pending',
+    'plus-checkout-create': 'pending',
+    'plus-checkout-billing': 'pending',
+    'paypal-approve': 'pending',
+    'plus-checkout-return': 'pending',
+    'oauth-login': 'pending',
+    'fetch-login-code': 'pending',
+    'post-login-phone-verification': 'pending',
+    'confirm-oauth': 'pending',
+    'platform-verify': 'pending',
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(state.nodeStatuses, 'sub2api-session-import'), false);
+  assert.deepStrictEqual(broadcasts.at(-1), {
+    panelMode: 'cpa',
+    signupMethod: 'email',
+    oauthUrl: null,
+    localhostUrl: null,
+    oauthFlowDeadlineAt: null,
+    oauthFlowDeadlineSourceUrl: null,
+    cpaOAuthState: null,
+    cpaManagementOrigin: null,
+    sub2apiSessionId: null,
+    sub2apiOAuthState: null,
+    sub2apiGroupId: null,
+    sub2apiGroupIds: [],
+    sub2apiDraftName: null,
+    sub2apiProxyId: null,
+    codex2apiSessionId: null,
+    codex2apiOAuthState: null,
+    plusManualConfirmationPending: false,
+    plusManualConfirmationRequestId: '',
+    plusManualConfirmationStep: 0,
+    plusManualConfirmationMethod: '',
+    plusManualConfirmationTitle: '',
+    plusManualConfirmationMessage: '',
+    nodeStatuses: {
+      'open-chatgpt': 'pending',
+      'plus-checkout-create': 'pending',
+      'plus-checkout-billing': 'pending',
+      'paypal-approve': 'pending',
+      'plus-checkout-return': 'pending',
+      'oauth-login': 'pending',
+      'fetch-login-code': 'pending',
+      'post-login-phone-verification': 'pending',
+      'confirm-oauth': 'pending',
+      'platform-verify': 'pending',
+    },
+    currentNodeId: '',
+  });
+});
+
 test('SAVE_SETTING mirrors activeFlowId into flowId when switching to kiro flow', async () => {
   const source = fs.readFileSync('background/message-router.js', 'utf8');
   const globalScope = { console };

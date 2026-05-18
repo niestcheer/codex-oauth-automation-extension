@@ -6,8 +6,25 @@ const source = fs.readFileSync('background/message-router.js', 'utf8');
 const globalScope = {};
 const api = new Function('self', `${source}; return self.MultiPageBackgroundMessageRouter;`)(globalScope);
 
-test('message router appends success record on Plus final step instead of hard-coded step 10', async () => {
+function createRouterWithFinalNode(options = {}) {
+  const finalNodeId = String(options.finalNodeId || 'platform-verify').trim();
+  const nodeIds = Array.isArray(options.nodeIds) ? options.nodeIds.slice() : [
+    'open-chatgpt',
+    'oauth-login',
+    'fetch-login-code',
+    'confirm-oauth',
+    finalNodeId,
+  ];
+  const nodeStepMap = {
+    'oauth-login': 10,
+    'fetch-login-code': 11,
+    'confirm-oauth': 12,
+    'platform-verify': 13,
+    'sub2api-session-import': 10,
+    ...(options.nodeStepMap || {}),
+  };
   const appendCalls = [];
+
   const router = api.createMessageRouter({
     addLog: async () => {},
     appendAccountRunRecord: async (...args) => {
@@ -43,12 +60,15 @@ test('message router appends success record on Plus final step instead of hard-c
     getCurrentLuckmailPurchase: () => null,
     getPendingAutoRunTimerPlan: () => null,
     getSourceLabel: () => '',
-    getState: async () => ({ plusModeEnabled: true, nodeStatuses: { 'platform-verify': 'pending' } }),
-    getNodeIdsForState: () => ['open-chatgpt', 'oauth-login', 'fetch-login-code', 'confirm-oauth', 'platform-verify'],
-    getStepIdByNodeIdForState: (nodeId) => ({ 'oauth-login': 10, 'fetch-login-code': 11, 'confirm-oauth': 12, 'platform-verify': 13 }[nodeId] || 0),
-    getLastStepIdForState: () => 13,
-    getStepDefinitionForState: (step) => ({ id: step, key: step === 10 ? 'oauth-login' : 'platform-verify' }),
-    getStepIdsForState: () => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    getState: async () => ({ plusModeEnabled: true, nodeStatuses: { [finalNodeId]: 'pending' } }),
+    getNodeIdsForState: () => nodeIds.slice(),
+    getStepIdByNodeIdForState: (nodeId) => nodeStepMap[nodeId] || 0,
+    getLastStepIdForState: () => Math.max(...Object.values(nodeStepMap)),
+    getStepDefinitionForState: (step) => ({
+      id: step,
+      key: Object.entries(nodeStepMap).find(([, mappedStep]) => mappedStep === step)?.[0] || finalNodeId,
+    }),
+    getStepIdsForState: () => Object.values(nodeStepMap),
     getTabId: async () => null,
     getStopRequested: () => false,
     handleAutoRunLoopUnhandledError: async () => {},
@@ -100,7 +120,55 @@ test('message router appends success record on Plus final step instead of hard-c
     verifyHotmailAccount: async () => {},
   });
 
+  return {
+    appendCalls,
+    router,
+  };
+}
+
+test('message router appends success record on Plus final step instead of hard-coded step 10', async () => {
+  const { appendCalls, router } = createRouterWithFinalNode({
+    finalNodeId: 'platform-verify',
+    nodeIds: ['open-chatgpt', 'oauth-login', 'fetch-login-code', 'confirm-oauth', 'platform-verify'],
+    nodeStepMap: {
+      'oauth-login': 10,
+      'fetch-login-code': 11,
+      'confirm-oauth': 12,
+      'platform-verify': 13,
+    },
+  });
+
   await router.handleMessage({ type: 'NODE_COMPLETE', nodeId: 'platform-verify', payload: { nodeId: 'platform-verify' } }, {});
+
+  assert.equal(appendCalls.length, 1);
+  assert.equal(appendCalls[0][0], 'success');
+});
+
+test('message router appends success record when SUB2API session import is the final Plus node', async () => {
+  const { appendCalls, router } = createRouterWithFinalNode({
+    finalNodeId: 'sub2api-session-import',
+    nodeIds: [
+      'open-chatgpt',
+      'plus-checkout-create',
+      'plus-checkout-billing',
+      'paypal-approve',
+      'plus-checkout-return',
+      'sub2api-session-import',
+    ],
+    nodeStepMap: {
+      'plus-checkout-create': 6,
+      'plus-checkout-billing': 7,
+      'paypal-approve': 8,
+      'plus-checkout-return': 9,
+      'sub2api-session-import': 10,
+    },
+  });
+
+  await router.handleMessage({
+    type: 'NODE_COMPLETE',
+    nodeId: 'sub2api-session-import',
+    payload: { nodeId: 'sub2api-session-import' },
+  }, {});
 
   assert.equal(appendCalls.length, 1);
   assert.equal(appendCalls[0][0], 'success');

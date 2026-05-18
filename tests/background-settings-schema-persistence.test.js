@@ -80,6 +80,7 @@ const SETTINGS_SCHEMA_VIEW_KEYS = Object.freeze([
   'phoneSignupReloginAfterBindEmailEnabled',
   'plusModeEnabled',
   'plusPaymentMethod',
+  'plusAccountAccessStrategy',
   'mailProvider',
   'ipProxyEnabled',
   'ipProxyService',
@@ -95,6 +96,7 @@ const PERSISTED_SETTING_DEFAULTS = {
   signupMethod: 'email',
   plusModeEnabled: false,
   plusPaymentMethod: 'paypal',
+  plusAccountAccessStrategy: 'oauth',
   phoneVerificationEnabled: false,
   mailProvider: '163',
   ipProxyEnabled: false,
@@ -249,6 +251,7 @@ test('buildPersistentSettingsPayload accepts schema-only input when requireKnown
           plus: {
             plusModeEnabled: false,
             plusPaymentMethod: 'paypal',
+            plusAccountAccessStrategy: 'oauth',
           },
           autoRun: {
             stepExecutionRange: { enabled: false, fromStep: 1, toStep: 11 },
@@ -276,6 +279,7 @@ test('buildPersistentSettingsPayload accepts schema-only input when requireKnown
   assert.equal(payload.kiroRsKey, 'schema-only-key');
   assert.equal(Object.prototype.hasOwnProperty.call(payload, 'kiroRegion'), false);
   assert.equal(payload.settingsSchemaVersion, 4);
+  assert.equal(payload.settingsState.flows.openai.plus.plusAccountAccessStrategy, 'oauth');
 });
 
 test('getPersistedSettings reads schema keys alongside legacy flat settings keys', async () => {
@@ -300,6 +304,7 @@ function getRequestedKeys() {
 
   assert.ok(api.getRequestedKeys().includes('settingsSchemaVersion'));
   assert.ok(api.getRequestedKeys().includes('settingsState'));
+  assert.ok(api.getRequestedKeys().includes('plusAccountAccessStrategy'));
   assert.equal(state.settingsSchemaVersion, 4);
   assert.equal(state.settingsState.activeFlowId, 'openai');
 });
@@ -350,6 +355,7 @@ const chrome = {
                 plus: {
                   plusModeEnabled: false,
                   plusPaymentMethod: 'paypal',
+                  plusAccountAccessStrategy: 'sub2api_codex_session',
                 },
                 autoRun: {
                   stepExecutionRange: { enabled: false, fromStep: 1, toStep: 11 },
@@ -384,6 +390,7 @@ const chrome = {
   assert.equal(state.ipProxyEnabled, true);
   assert.equal(state.kiroRsUrl, 'https://kiro.example.com/admin');
   assert.equal(state.kiroRsKey, 'stored-key');
+  assert.equal(state.plusAccountAccessStrategy, 'sub2api_codex_session');
   assert.equal(Object.prototype.hasOwnProperty.call(state, 'kiroRegion'), false);
   assert.deepEqual(state.stepExecutionRangeByFlow.kiro, {
     enabled: true,
@@ -459,6 +466,7 @@ function getRemovedKeys() {
           plus: {
             plusModeEnabled: false,
             plusPaymentMethod: 'paypal',
+            plusAccountAccessStrategy: 'sub2api_codex_session',
           },
           autoRun: {
             stepExecutionRange: { enabled: false, fromStep: 1, toStep: 11 },
@@ -486,6 +494,7 @@ function getRemovedKeys() {
   assert.equal(persisted.kiroTargetId, 'kiro-rs');
   assert.equal(persisted.kiroRsUrl, 'https://kiro.example.com/admin');
   assert.equal(persisted.kiroRsKey, 'nested-only-key');
+  assert.equal(persisted.plusAccountAccessStrategy, 'sub2api_codex_session');
   assert.equal(Object.prototype.hasOwnProperty.call(persisted, 'kiroRegion'), false);
   assert.equal(persisted.settingsSchemaVersion, 4);
   assert.equal(Object.prototype.hasOwnProperty.call(write, 'activeFlowId'), false);
@@ -494,6 +503,7 @@ function getRemovedKeys() {
   assert.equal(Object.prototype.hasOwnProperty.call(write, 'kiroRegion'), false);
   assert.equal(write.settingsSchemaVersion, 4);
   assert.equal(write.settingsState.activeFlowId, 'kiro');
+  assert.equal(write.settingsState.flows.openai.plus.plusAccountAccessStrategy, 'sub2api_codex_session');
   assert.equal(write.settingsState.flows.kiro.targetId, 'kiro-rs');
   assert.ok(api.getRemovedKeys().includes('panelMode'));
   assert.ok(api.getRemovedKeys().includes('kiroRsUrl'));

@@ -8,6 +8,8 @@
   const DEFAULT_OPENAI_TARGET_ID = flowRegistryApi.DEFAULT_OPENAI_TARGET_ID || 'cpa';
   const SIGNUP_METHOD_EMAIL = 'email';
   const SIGNUP_METHOD_PHONE = 'phone';
+  const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
+  const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';
   const VALID_OPENAI_TARGET_IDS = Array.isArray(flowRegistryApi.OPENAI_TARGET_IDS)
     ? flowRegistryApi.OPENAI_TARGET_IDS.slice()
     : ['cpa', 'sub2api', 'codex2api'];
@@ -50,6 +52,7 @@
   const DEFAULT_TARGET_CAPABILITIES = Object.freeze({
     supportsPhoneSignup: true,
     requiresPhoneSignupWarning: false,
+    supportedPlusAccountAccessStrategies: Object.freeze([PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH]),
   });
 
   const MODE_SWITCH_RELEVANT_KEYS = Object.freeze([
@@ -59,6 +62,7 @@
     'phoneVerificationEnabled',
     'plusModeEnabled',
     'signupMethod',
+    'plusAccountAccessStrategy',
     'openaiIntegrationTargetId',
     'kiroTargetId',
   ]);
@@ -67,14 +71,20 @@
     cpa: Object.freeze({
       supportsPhoneSignup: true,
       requiresPhoneSignupWarning: true,
+      supportedPlusAccountAccessStrategies: Object.freeze([PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH]),
     }),
     sub2api: Object.freeze({
       supportsPhoneSignup: true,
       requiresPhoneSignupWarning: false,
+      supportedPlusAccountAccessStrategies: Object.freeze([
+        PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH,
+        PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION,
+      ]),
     }),
     codex2api: Object.freeze({
       supportsPhoneSignup: true,
       requiresPhoneSignupWarning: false,
+      supportedPlusAccountAccessStrategies: Object.freeze([PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH]),
     }),
   });
 
@@ -114,6 +124,12 @@
     return String(value || '').trim().toLowerCase() === SIGNUP_METHOD_PHONE
       ? SIGNUP_METHOD_PHONE
       : SIGNUP_METHOD_EMAIL;
+  }
+
+  function normalizePlusAccountAccessStrategy(value = '') {
+    return String(value || '').trim().toLowerCase() === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+      ? PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+      : PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
   }
 
   function normalizeOpenAiTargetList(values = []) {
@@ -336,6 +352,28 @@
         : (effectiveSignupMethods.includes(SIGNUP_METHOD_EMAIL)
           ? SIGNUP_METHOD_EMAIL
           : effectiveSignupMethods[0]);
+      const requestedPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(
+        options?.plusAccountAccessStrategy ?? state?.plusAccountAccessStrategy
+      );
+      const availablePlusAccountAccessStrategies = activeFlowId === 'openai'
+        && Boolean(flowState.supportsPlusMode)
+        && Boolean(runtimeLocks.plusModeEnabled)
+        && effectiveSignupMethod === SIGNUP_METHOD_EMAIL
+        ? (
+          Array.isArray(targetState.supportedPlusAccountAccessStrategies)
+            && targetState.supportedPlusAccountAccessStrategies.length > 0
+            ? targetState.supportedPlusAccountAccessStrategies.slice()
+            : [PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH]
+        )
+        : [PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH];
+      const effectivePlusAccountAccessStrategy = availablePlusAccountAccessStrategies.includes(requestedPlusAccountAccessStrategy)
+        ? requestedPlusAccountAccessStrategy
+        : PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
+      const canEditPlusAccountAccessStrategy = activeFlowId === 'openai'
+        && Boolean(flowState.supportsPlusMode)
+        && Boolean(runtimeLocks.plusModeEnabled)
+        && effectiveSignupMethod === SIGNUP_METHOD_EMAIL
+        && availablePlusAccountAccessStrategies.length > 1;
       const visibleGroupIds = typeof flowRegistryApi.getVisibleGroupIds === 'function'
         && isRegisteredFlowId(activeFlowId)
         ? flowRegistryApi.getVisibleGroupIds(activeFlowId, effectiveTargetId)
@@ -348,8 +386,10 @@
         canShowPhoneSettings: activeFlowId === 'openai' && Boolean(flowState.supportsPhoneVerificationSettings),
         canShowPlusSettings: activeFlowId === 'openai' && Boolean(flowState.supportsPlusMode),
         canSwitchFlow: Boolean(flowState.canSwitchFlow),
+        canEditPlusAccountAccessStrategy,
         canUsePhoneSignup: canSelectPhoneSignup,
         canUseSelectedTarget: targetSupported,
+        effectivePlusAccountAccessStrategy,
         effectivePanelMode: effectiveTargetId,
         effectiveSignupMethod,
         effectiveSignupMethods,
@@ -357,9 +397,11 @@
         flowCapabilities: flowState,
         panelCapabilities: targetState,
         panelMode: effectiveTargetId,
+        requestedPlusAccountAccessStrategy,
         requestedSignupMethod,
         requestedTargetId,
         runtimeLocks,
+        availablePlusAccountAccessStrategies,
         shouldWarnCpaPhoneSignup: effectiveSignupMethod === SIGNUP_METHOD_PHONE
           && Boolean(targetState.requiresPhoneSignupWarning),
         stepDefinitionOptions: {
@@ -367,6 +409,7 @@
           integrationTargetId: effectiveTargetId,
           panelMode: effectiveTargetId,
           targetId: effectiveTargetId,
+          plusAccountAccessStrategy: effectivePlusAccountAccessStrategy,
           plusModeEnabled: runtimeLocks.plusModeEnabled,
           signupMethod: effectiveSignupMethod,
         },
@@ -556,6 +599,7 @@
       getOpenAiTargetCapabilities,
       normalizeFlowId,
       normalizeOpenAiTargetId,
+      normalizePlusAccountAccessStrategy,
       normalizeSignupMethod,
       resolveSidepanelCapabilities,
       resolveSignupMethod,
@@ -572,11 +616,14 @@
     DEFAULT_OPENAI_TARGET_ID,
     FLOW_CAPABILITIES,
     OPENAI_TARGET_CAPABILITIES,
+    PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH,
+    PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION,
     SIGNUP_METHOD_EMAIL,
     SIGNUP_METHOD_PHONE,
     VALID_OPENAI_TARGET_IDS,
     normalizeFlowId,
     normalizeOpenAiTargetId,
+    normalizePlusAccountAccessStrategy,
     normalizeSignupMethod,
   };
 });

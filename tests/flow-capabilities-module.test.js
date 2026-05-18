@@ -191,3 +191,48 @@ test('flow capability registry normalizes unsupported mode switches back to the 
     ]
   );
 });
+
+test('flow capability registry exposes editable Plus account access strategies for SUB2API', () => {
+  const api = loadApi();
+  const registry = api.createFlowCapabilityRegistry();
+
+  const capabilityState = registry.resolveSidepanelCapabilities({
+    state: {
+      activeFlowId: 'openai',
+      openaiIntegrationTargetId: 'sub2api',
+      signupMethod: 'email',
+      plusModeEnabled: true,
+      plusAccountAccessStrategy: 'sub2api_codex_session',
+    },
+  });
+
+  assert.deepEqual(
+    capabilityState.availablePlusAccountAccessStrategies,
+    ['oauth', 'sub2api_codex_session']
+  );
+  assert.equal(capabilityState.requestedPlusAccountAccessStrategy, 'sub2api_codex_session');
+  assert.equal(capabilityState.effectivePlusAccountAccessStrategy, 'sub2api_codex_session');
+  assert.equal(capabilityState.canEditPlusAccountAccessStrategy, true);
+  assert.equal(capabilityState.stepDefinitionOptions.plusAccountAccessStrategy, 'sub2api_codex_session');
+});
+
+test('flow capability registry preserves requested Plus account strategy while forcing OAuth on unsupported targets', () => {
+  const api = loadApi();
+  const registry = api.createFlowCapabilityRegistry();
+
+  const capabilityState = registry.resolveSidepanelCapabilities({
+    state: {
+      activeFlowId: 'openai',
+      openaiIntegrationTargetId: 'cpa',
+      signupMethod: 'email',
+      plusModeEnabled: true,
+      plusAccountAccessStrategy: 'sub2api_codex_session',
+    },
+  });
+
+  assert.deepEqual(capabilityState.availablePlusAccountAccessStrategies, ['oauth']);
+  assert.equal(capabilityState.requestedPlusAccountAccessStrategy, 'sub2api_codex_session');
+  assert.equal(capabilityState.effectivePlusAccountAccessStrategy, 'oauth');
+  assert.equal(capabilityState.canEditPlusAccountAccessStrategy, false);
+  assert.equal(capabilityState.stepDefinitionOptions.plusAccountAccessStrategy, 'oauth');
+});

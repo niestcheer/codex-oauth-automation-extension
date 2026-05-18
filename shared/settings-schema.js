@@ -47,6 +47,11 @@
     const normalizeTargetId = typeof flowRegistry.normalizeTargetId === 'function'
       ? flowRegistry.normalizeTargetId
       : ((_flowId, value = '', fallback = '') => String(value || fallback || '').trim().toLowerCase());
+    const normalizePlusAccountAccessStrategy = (value = '') => (
+      String(value || '').trim().toLowerCase() === 'sub2api_codex_session'
+        ? 'sub2api_codex_session'
+        : 'oauth'
+    );
 
     function buildDefaultSettingsState() {
       return {
@@ -96,6 +101,7 @@
             plus: {
               plusModeEnabled: false,
               plusPaymentMethod: 'paypal',
+              plusAccountAccessStrategy: 'oauth',
             },
             autoRun: {
               stepExecutionRange: {
@@ -301,6 +307,11 @@
                 ?? nested?.flows?.openai?.plus?.plusPaymentMethod
                 ?? defaults.flows.openai.plus.plusPaymentMethod
               ).trim() || defaults.flows.openai.plus.plusPaymentMethod,
+              plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(
+                input?.plusAccountAccessStrategy
+                ?? nested?.flows?.openai?.plus?.plusAccountAccessStrategy
+                ?? defaults.flows.openai.plus.plusAccountAccessStrategy
+              ),
             },
             autoRun: {
               stepExecutionRange: normalizeStepExecutionRangeEntry(
@@ -439,6 +450,7 @@
       next.phoneSignupReloginAfterBindEmailEnabled = openaiState.signup.phoneSignupReloginAfterBindEmailEnabled;
       next.plusModeEnabled = openaiState.plus.plusModeEnabled;
       next.plusPaymentMethod = openaiState.plus.plusPaymentMethod;
+      next.plusAccountAccessStrategy = openaiState.plus.plusAccountAccessStrategy;
       next.mailProvider = normalizedState.services.email.provider;
       next.ipProxyEnabled = normalizedState.services.proxy.enabled;
       next.ipProxyService = normalizedState.services.proxy.provider;

@@ -592,6 +592,18 @@
       return method === 'gopay' ? 'GoPay' : 'PayPal';
     }
 
+    function normalizePlusAccountAccessStrategyForDisplay(value = '') {
+      return String(value || '').trim().toLowerCase() === 'sub2api_codex_session'
+        ? 'sub2api_codex_session'
+        : 'oauth';
+    }
+
+    function getPlusAccountAccessStrategyLabel(value = '') {
+      return normalizePlusAccountAccessStrategyForDisplay(value) === 'sub2api_codex_session'
+        ? '导入当前 ChatGPT 会话到 SUB2API'
+        : 'OAuth';
+    }
+
     async function handlePlatformVerifyStepData(payload) {
       if (payload.localhostUrl) {
         await closeLocalhostCallbackTabs(payload.localhostUrl);
@@ -1421,6 +1433,9 @@
           const plusPaymentChanged = Object.prototype.hasOwnProperty.call(updates, 'plusPaymentMethod')
             && normalizePlusPaymentMethodForDisplay(currentState?.plusPaymentMethod || 'paypal')
               !== normalizePlusPaymentMethodForDisplay(updates.plusPaymentMethod || 'paypal');
+          const plusAccountAccessStrategyChanged = Object.prototype.hasOwnProperty.call(updates, 'plusAccountAccessStrategy')
+            && normalizePlusAccountAccessStrategyForDisplay(currentState?.plusAccountAccessStrategy || 'oauth')
+              !== normalizePlusAccountAccessStrategyForDisplay(updates.plusAccountAccessStrategy || 'oauth');
           const phoneSignupReloginAfterBindEmailChanged = Object.prototype.hasOwnProperty.call(updates, 'phoneSignupReloginAfterBindEmailEnabled')
             && Boolean(currentState?.phoneSignupReloginAfterBindEmailEnabled) !== Boolean(updates.phoneSignupReloginAfterBindEmailEnabled);
           const nextPlusModeEnabled = Object.prototype.hasOwnProperty.call(updates, 'plusModeEnabled')
@@ -1428,6 +1443,7 @@
             : Boolean(currentState?.plusModeEnabled);
           const stepModeChanged = modeChanged
             || (nextPlusModeEnabled && plusPaymentChanged)
+            || (nextPlusModeEnabled && plusAccountAccessStrategyChanged)
             || phoneSignupReloginAfterBindEmailChanged;
           const oauthFlowTimeoutDisabled = Object.prototype.hasOwnProperty.call(updates, 'oauthFlowTimeoutEnabled')
             && updates.oauthFlowTimeoutEnabled === false;
@@ -1450,11 +1466,45 @@
               ? nextHostPreference
               : '';
           }
-          if (stepModeChanged && typeof getStepIdsForState === 'function') {
-            const nextStateForSteps = { ...currentState, ...stateUpdates };
-            const nextNodeIds = typeof getNodeIdsForState === 'function'
-              ? getNodeIdsForState(nextStateForSteps)
-              : getStepIdsForState(nextStateForSteps).map((stepId) => getStepKeyForState(stepId, nextStateForSteps)).filter(Boolean);
+          const currentNodeIds = typeof getNodeIdsForState === 'function'
+            ? getNodeIdsForState(currentState)
+            : (typeof getStepIdsForState === 'function'
+              ? getStepIdsForState(currentState).map((stepId) => getStepKeyForState(stepId, currentState)).filter(Boolean)
+              : []);
+          const nextStateForSteps = { ...currentState, ...stateUpdates };
+          const nextNodeIds = typeof getNodeIdsForState === 'function'
+            ? getNodeIdsForState(nextStateForSteps)
+            : (typeof getStepIdsForState === 'function'
+              ? getStepIdsForState(nextStateForSteps).map((stepId) => getStepKeyForState(stepId, nextStateForSteps)).filter(Boolean)
+              : []);
+          const nodeTopologyChanged = currentNodeIds.length !== nextNodeIds.length
+            || currentNodeIds.some((nodeId, index) => nodeId !== nextNodeIds[index]);
+          const shouldRebuildNodeStatuses = stepModeChanged || nodeTopologyChanged;
+          if (shouldRebuildNodeStatuses && nextNodeIds.length > 0) {
+            Object.assign(stateUpdates, {
+              oauthUrl: null,
+              localhostUrl: null,
+              oauthFlowDeadlineAt: null,
+              oauthFlowDeadlineSourceUrl: null,
+              cpaOAuthState: null,
+              cpaManagementOrigin: null,
+              sub2apiSessionId: null,
+              sub2apiOAuthState: null,
+              sub2apiGroupId: null,
+              sub2apiGroupIds: [],
+              sub2apiDraftName: null,
+              sub2apiProxyId: null,
+              codex2apiSessionId: null,
+              codex2apiOAuthState: null,
+              plusManualConfirmationPending: false,
+              plusManualConfirmationRequestId: '',
+              plusManualConfirmationStep: 0,
+              plusManualConfirmationMethod: '',
+              plusManualConfirmationTitle: '',
+              plusManualConfirmationMessage: '',
+            });
+          }
+          if (shouldRebuildNodeStatuses && nextNodeIds.length > 0) {
             stateUpdates.nodeStatuses = Object.fromEntries(nextNodeIds.map((nodeId) => [nodeId, 'pending']));
             stateUpdates.currentNodeId = '';
           }
@@ -1510,9 +1560,12 @@
             const selectedPlusPaymentMethod = getPlusPaymentMethodLabel(
               stateUpdates.plusPaymentMethod ?? currentState?.plusPaymentMethod ?? 'paypal'
             );
+            const selectedPlusAccountAccessStrategy = getPlusAccountAccessStrategyLabel(
+              stateUpdates.plusAccountAccessStrategy ?? currentState?.plusAccountAccessStrategy ?? 'oauth'
+            );
             await addLog(
               Boolean(updates.plusModeEnabled)
-                ? `Plus 模式已开启，已切换为 Plus Checkout 步骤，当前支付方式：${selectedPlusPaymentMethod}。`
+                ? `Plus 模式已开启，已切换为 Plus Checkout 步骤，当前支付方式：${selectedPlusPaymentMethod}，账号接入策略：${selectedPlusAccountAccessStrategy}。`
                 : 'Plus 模式已关闭，已恢复普通注册授权步骤。',
               'info'
             );
@@ -1521,6 +1574,11 @@
               stateUpdates.plusPaymentMethod ?? currentState?.plusPaymentMethod ?? 'paypal'
             );
             await addLog(`Plus 支付方式已切换为 ${selectedPlusPaymentMethod}，已更新对应的 Plus 步骤。`, 'info');
+          } else if (plusAccountAccessStrategyChanged && nextPlusModeEnabled) {
+            const selectedPlusAccountAccessStrategy = getPlusAccountAccessStrategyLabel(
+              stateUpdates.plusAccountAccessStrategy ?? currentState?.plusAccountAccessStrategy ?? 'oauth'
+            );
+            await addLog(`Plus 账号接入策略已切换为 ${selectedPlusAccountAccessStrategy}，已更新对应的 Plus 尾链。`, 'info');
           }
           return {
             ok: true,

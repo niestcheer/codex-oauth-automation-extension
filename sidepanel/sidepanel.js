@@ -192,6 +192,9 @@ const rowPlusPaymentMethod = document.getElementById('row-plus-payment-method');
 const selectPlusPaymentMethod = document.getElementById('select-plus-payment-method');
 const btnGpcCardKeyPurchase = document.getElementById('btn-gpc-card-key-purchase');
 const plusPaymentMethodCaption = document.getElementById('plus-payment-method-caption');
+const rowPlusAccountAccessStrategy = document.getElementById('row-plus-account-access-strategy');
+const selectPlusAccountAccessStrategy = document.getElementById('select-plus-account-access-strategy');
+const plusAccountAccessStrategyCaption = document.getElementById('plus-account-access-strategy-caption');
 const rowPayPalAccount = document.getElementById('row-paypal-account');
 const selectPayPalAccount = document.getElementById('select-paypal-account');
 const payPalAccountPickerRoot = document.getElementById('paypal-account-picker');
@@ -542,6 +545,9 @@ const GPC_HELPER_PORTAL_URL = 'https://gpc.qlhazycoder.top/';
 const GPC_HELPER_PHONE_MODE_AUTO = 'auto';
 const GPC_HELPER_PHONE_MODE_MANUAL = 'manual';
 const DEFAULT_PLUS_PAYMENT_METHOD = PLUS_PAYMENT_METHOD_PAYPAL;
+const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
+const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';
+const DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY = PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
 const SIGNUP_METHOD_EMAIL = 'email';
 const SIGNUP_METHOD_PHONE = 'phone';
 const DEFAULT_SIGNUP_METHOD = SIGNUP_METHOD_EMAIL;
@@ -551,6 +557,7 @@ const PHONE_SIGNUP_REUSE_LOCK_TITLE = '手机号注册流程不使用号码复�
 let latestState = null;
 let currentPlusModeEnabled = false;
 let currentPlusPaymentMethod = DEFAULT_PLUS_PAYMENT_METHOD;
+let currentPlusAccountAccessStrategy = DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY;
 let currentSignupMethod = DEFAULT_SIGNUP_METHOD;
 let currentPhoneSignupReloginAfterBindEmailEnabled = DEFAULT_PHONE_SIGNUP_RELOGIN_AFTER_BIND_EMAIL_ENABLED;
 let currentStepDefinitionFlowId = DEFAULT_ACTIVE_FLOW_ID;
@@ -573,11 +580,13 @@ let nexSmsCountryMenuSearchKeyword = '';
 const nexSmsCountrySearchTextById = new Map();
 let stepDefinitions = getStepDefinitionsForMode(false, {
   plusPaymentMethod: currentPlusPaymentMethod,
+  plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
   signupMethod: currentSignupMethod,
   phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
 });
 let workflowNodes = getWorkflowNodesForMode(false, {
   plusPaymentMethod: currentPlusPaymentMethod,
+  plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
   signupMethod: currentSignupMethod,
   phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
 });
@@ -838,9 +847,13 @@ function initPhoneVerificationSectionExpandedState() {
 function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
   const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID !== 'undefined' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
   const defaultMethod = typeof DEFAULT_PLUS_PAYMENT_METHOD !== 'undefined' ? DEFAULT_PLUS_PAYMENT_METHOD : 'paypal';
+  const defaultStrategy = typeof DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY !== 'undefined' ? DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY : 'oauth';
   const rawPaymentMethod = typeof options === 'string'
     ? options
     : (options.plusPaymentMethod || currentPlusPaymentMethod || defaultMethod);
+  const rawPlusAccountAccessStrategy = typeof options === 'string'
+    ? currentPlusAccountAccessStrategy
+    : (options.plusAccountAccessStrategy || currentPlusAccountAccessStrategy || defaultStrategy);
   const rawSignupMethod = typeof options === 'string'
     ? currentSignupMethod
     : (options.signupMethod || currentSignupMethod || DEFAULT_SIGNUP_METHOD);
@@ -854,6 +867,7 @@ function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
     activeFlowId: String(activeFlowId || '').trim().toLowerCase() || defaultFlowId,
     plusModeEnabled,
     plusPaymentMethod: normalizePlusPaymentMethod(rawPaymentMethod),
+    plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneSignupReloginAfterBindEmailEnabled,
   }) || [])
@@ -868,9 +882,13 @@ function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
 function getWorkflowNodesForMode(plusModeEnabled = false, options = {}) {
   const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID !== 'undefined' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
   const defaultMethod = typeof DEFAULT_PLUS_PAYMENT_METHOD !== 'undefined' ? DEFAULT_PLUS_PAYMENT_METHOD : 'paypal';
+  const defaultStrategy = typeof DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY !== 'undefined' ? DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY : 'oauth';
   const rawPaymentMethod = typeof options === 'string'
     ? options
     : (options.plusPaymentMethod || currentPlusPaymentMethod || defaultMethod);
+  const rawPlusAccountAccessStrategy = typeof options === 'string'
+    ? currentPlusAccountAccessStrategy
+    : (options.plusAccountAccessStrategy || currentPlusAccountAccessStrategy || defaultStrategy);
   const rawSignupMethod = typeof options === 'string'
     ? currentSignupMethod
     : (options.signupMethod || currentSignupMethod || DEFAULT_SIGNUP_METHOD);
@@ -884,6 +902,7 @@ function getWorkflowNodesForMode(plusModeEnabled = false, options = {}) {
     activeFlowId: String(activeFlowId || '').trim().toLowerCase() || defaultFlowId,
     plusModeEnabled,
     plusPaymentMethod: normalizePlusPaymentMethod(rawPaymentMethod),
+    plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneSignupReloginAfterBindEmailEnabled,
   });
@@ -940,9 +959,13 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
   currentPlusModeEnabled = Boolean(plusModeEnabled);
   const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID !== 'undefined' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
   const defaultMethod = typeof DEFAULT_PLUS_PAYMENT_METHOD !== 'undefined' ? DEFAULT_PLUS_PAYMENT_METHOD : 'paypal';
+  const defaultStrategy = typeof DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY !== 'undefined' ? DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY : 'oauth';
   const rawPaymentMethod = typeof options === 'string'
     ? options
     : (options.plusPaymentMethod || currentPlusPaymentMethod || defaultMethod);
+  const rawPlusAccountAccessStrategy = typeof options === 'string'
+    ? currentPlusAccountAccessStrategy
+    : (options.plusAccountAccessStrategy || currentPlusAccountAccessStrategy || defaultStrategy);
   const rawSignupMethod = typeof options === 'string'
     ? currentSignupMethod
     : (options.signupMethod || currentSignupMethod || DEFAULT_SIGNUP_METHOD);
@@ -950,6 +973,7 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
     ? currentPhoneSignupReloginAfterBindEmailEnabled
     : Boolean(options.phoneSignupReloginAfterBindEmailEnabled ?? currentPhoneSignupReloginAfterBindEmailEnabled);
   currentPlusPaymentMethod = normalizePlusPaymentMethod(rawPaymentMethod);
+  currentPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy);
   currentSignupMethod = normalizeSignupMethod(rawSignupMethod);
   currentPhoneSignupReloginAfterBindEmailEnabled = phoneSignupReloginAfterBindEmailEnabled;
   const nextActiveFlowId = String(
@@ -963,6 +987,7 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
   stepDefinitions = getStepDefinitionsForMode(currentPlusModeEnabled, {
     activeFlowId: nextActiveFlowId,
     plusPaymentMethod: currentPlusPaymentMethod,
+    plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
     signupMethod: currentSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
   });
@@ -970,6 +995,7 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
     ? getWorkflowNodesForMode(currentPlusModeEnabled, {
       activeFlowId: nextActiveFlowId,
       plusPaymentMethod: currentPlusPaymentMethod,
+      plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
       signupMethod: currentSignupMethod,
       phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
     })
@@ -1899,6 +1925,19 @@ async function openConfirmModalWithOption({
 
 async function openPlusManualConfirmationDialog(options = {}) {
   const method = String(options.method || '').trim().toLowerCase();
+  const activeFlowId = String(latestState?.activeFlowId || latestState?.flowId || 'openai').trim().toLowerCase();
+  const panelMode = String(latestState?.panelMode || latestState?.openaiIntegrationTargetId || '').trim().toLowerCase();
+  const signupMethod = String(latestState?.resolvedSignupMethod || latestState?.signupMethod || 'email').trim().toLowerCase();
+  const plusModeEnabled = latestState?.plusModeEnabled === undefined ? true : Boolean(latestState.plusModeEnabled);
+  const plusAccountAccessStrategy = String(latestState?.plusAccountAccessStrategy || 'oauth').trim().toLowerCase();
+  const useSub2ApiSessionImport = plusModeEnabled
+    && activeFlowId === 'openai'
+    && panelMode === 'sub2api'
+    && signupMethod === 'email'
+    && plusAccountAccessStrategy === 'sub2api_codex_session';
+  const continuationActionLabel = useSub2ApiSessionImport
+    ? '导入当前 ChatGPT 会话到 SUB2API'
+    : 'OAuth 登录';
   const title = String(options.title || '').trim() || (method === 'gopay' ? 'GoPay 订阅确认' : '手动确认');
   const message = String(options.message || '').trim()
     || (method === 'gopay'
@@ -1912,7 +1951,7 @@ async function openPlusManualConfirmationDialog(options = {}) {
       { id: 'confirm', label: '我已完成订阅', variant: 'btn-primary' },
     ],
     alert: method === 'gopay'
-      ? { text: '确认后流程会直接继续到 Plus 模式第 10 步 OAuth 登录。', tone: 'info' }
+      ? { text: `确认后流程会直接继续到 Plus 模式后续的${continuationActionLabel}。`, tone: 'info' }
       : null,
   });
 }
@@ -1926,6 +1965,19 @@ async function syncPlusManualConfirmationDialog() {
 
   const step = Number(latestState?.plusManualConfirmationStep) || 0;
   const method = String(latestState?.plusManualConfirmationMethod || '').trim().toLowerCase();
+  const activeFlowId = String(latestState?.activeFlowId || latestState?.flowId || 'openai').trim().toLowerCase();
+  const panelMode = String(latestState?.panelMode || latestState?.openaiIntegrationTargetId || '').trim().toLowerCase();
+  const signupMethod = String(latestState?.resolvedSignupMethod || latestState?.signupMethod || 'email').trim().toLowerCase();
+  const plusModeEnabled = latestState?.plusModeEnabled === undefined ? true : Boolean(latestState.plusModeEnabled);
+  const plusAccountAccessStrategy = String(latestState?.plusAccountAccessStrategy || 'oauth').trim().toLowerCase();
+  const useSub2ApiSessionImport = plusModeEnabled
+    && activeFlowId === 'openai'
+    && panelMode === 'sub2api'
+    && signupMethod === 'email'
+    && plusAccountAccessStrategy === 'sub2api_codex_session';
+  const continuationActionLabel = useSub2ApiSessionImport
+    ? '导入当前 ChatGPT 会话到 SUB2API'
+    : 'OAuth 登录';
   const title = latestState?.plusManualConfirmationTitle;
   const message = latestState?.plusManualConfirmationMessage;
   activePlusManualConfirmationRequestId = requestId;
@@ -1963,7 +2015,7 @@ async function syncPlusManualConfirmationDialog() {
       throw new Error(response.error);
     }
     if (confirmed) {
-      showToast(method === 'gopay' ? 'GoPay 订阅已确认，正在继续 OAuth 登录...' : '已确认，流程继续执行中...', 'info', 2200);
+      showToast(method === 'gopay' ? `GoPay 订阅已确认，正在继续${continuationActionLabel}...` : '已确认，流程继续执行中...', 'info', 2200);
     } else {
       showToast(method === 'gopay' ? '已取消 GoPay 订阅等待。' : '已取消当前手动确认。', 'warn', 2200);
     }
@@ -2799,12 +2851,39 @@ function normalizePlusPaymentMethod(value = '') {
   return normalized === gopayValue ? gopayValue : paypalValue;
 }
 
+function normalizePlusAccountAccessStrategy(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    ? PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    : PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
+}
+
 function getSelectedPlusPaymentMethod(state = latestState) {
   const defaultMethod = typeof DEFAULT_PLUS_PAYMENT_METHOD !== 'undefined' ? DEFAULT_PLUS_PAYMENT_METHOD : 'paypal';
   if (typeof selectPlusPaymentMethod !== 'undefined' && selectPlusPaymentMethod?.value) {
     return normalizePlusPaymentMethod(selectPlusPaymentMethod.value);
   }
   return normalizePlusPaymentMethod(state?.plusPaymentMethod || currentPlusPaymentMethod || defaultMethod);
+}
+
+function getRequestedPlusAccountAccessStrategy(state = latestState) {
+  const defaultStrategy = typeof DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY !== 'undefined'
+    ? DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY
+    : 'oauth';
+  const fallbackStrategy = normalizePlusAccountAccessStrategy(
+    (typeof selectPlusAccountAccessStrategy !== 'undefined' && selectPlusAccountAccessStrategy?.dataset?.requestedValue)
+    || state?.plusAccountAccessStrategy
+    || currentPlusAccountAccessStrategy
+    || defaultStrategy
+  );
+  if (
+    typeof selectPlusAccountAccessStrategy !== 'undefined'
+    && selectPlusAccountAccessStrategy
+    && !selectPlusAccountAccessStrategy.disabled
+  ) {
+    return normalizePlusAccountAccessStrategy(selectPlusAccountAccessStrategy.value || fallbackStrategy);
+  }
+  return fallbackStrategy;
 }
 
 function normalizeGpcHelperPhoneModeValue(value = '') {
@@ -4150,6 +4229,9 @@ function collectSettingsPayload() {
   const rawPlusModeEnabled = typeof inputPlusModeEnabled !== 'undefined' && inputPlusModeEnabled
     ? Boolean(inputPlusModeEnabled.checked)
     : Boolean(latestState?.plusModeEnabled);
+  const requestedPlusAccountAccessStrategy = typeof getRequestedPlusAccountAccessStrategy === 'function'
+    ? getRequestedPlusAccountAccessStrategy(latestState)
+    : normalizePlusAccountAccessStrategy(latestState?.plusAccountAccessStrategy || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY);
   const rawPhoneVerificationEnabled = Boolean(inputPhoneVerificationEnabled?.checked);
   const capabilityState = typeof resolveCurrentSidepanelCapabilities === 'function'
     ? resolveCurrentSidepanelCapabilities({
@@ -4164,6 +4246,7 @@ function collectSettingsPayload() {
           ? { panelMode: rawPanelMode }
           : { kiroTargetId: selectedTargetId }),
         plusModeEnabled: rawPlusModeEnabled,
+        plusAccountAccessStrategy: requestedPlusAccountAccessStrategy,
         phoneVerificationEnabled: rawPhoneVerificationEnabled,
         signupMethod: selectedSignupMethod,
       },
@@ -4186,6 +4269,7 @@ function collectSettingsPayload() {
               ? { panelMode: rawPanelMode }
               : { kiroTargetId: selectedTargetId }),
             plusModeEnabled: rawPlusModeEnabled,
+            plusAccountAccessStrategy: requestedPlusAccountAccessStrategy,
             phoneVerificationEnabled: rawPhoneVerificationEnabled,
             signupMethod: selectedSignupMethod,
           },
@@ -4326,6 +4410,7 @@ function collectSettingsPayload() {
     codex2apiAdminKey: inputCodex2ApiAdminKey.value.trim(),
     plusModeEnabled: effectivePlusModeEnabled,
     plusPaymentMethod,
+    plusAccountAccessStrategy: requestedPlusAccountAccessStrategy,
     paypalEmail: String(currentPayPalAccount?.email || latestState?.paypalEmail || '').trim(),
     paypalPassword: String(currentPayPalAccount?.password || latestState?.paypalPassword || ''),
     currentPayPalAccountId: String(latestState?.currentPayPalAccountId || '').trim(),
@@ -8505,6 +8590,10 @@ function resolveStepDefinitionCapabilityState(state = latestState, options = {})
     plusModeEnabled: capabilityState
       ? Boolean(capabilityState.runtimeLocks?.plusModeEnabled)
       : Boolean(nextState?.plusModeEnabled),
+    plusAccountAccessStrategy: capabilityState?.effectivePlusAccountAccessStrategy
+      || normalizePlusAccountAccessStrategy(
+        nextState?.plusAccountAccessStrategy || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY
+      ),
     signupMethod: capabilityState?.effectiveSignupMethod
       || normalizeSignupMethod((options?.signupMethod ?? nextState?.signupMethod) || DEFAULT_SIGNUP_METHOD),
   };
@@ -8905,7 +8994,16 @@ function updatePlusModeUI() {
   const paypalValue = typeof PLUS_PAYMENT_METHOD_PAYPAL !== 'undefined' ? PLUS_PAYMENT_METHOD_PAYPAL : 'paypal';
   const gopayValue = typeof PLUS_PAYMENT_METHOD_GOPAY !== 'undefined' ? PLUS_PAYMENT_METHOD_GOPAY : 'gopay';
   const gpcValue = typeof PLUS_PAYMENT_METHOD_GPC_HELPER !== 'undefined' ? PLUS_PAYMENT_METHOD_GPC_HELPER : 'gpc-helper';
+  const oauthStrategyValue = typeof PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH !== 'undefined'
+    ? PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH
+    : 'oauth';
+  const sub2apiSessionStrategyValue = typeof PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION !== 'undefined'
+    ? PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION
+    : 'sub2api_codex_session';
   const defaultMethod = typeof DEFAULT_PLUS_PAYMENT_METHOD !== 'undefined' ? DEFAULT_PLUS_PAYMENT_METHOD : paypalValue;
+  const requestedPlusAccountAccessStrategy = typeof getRequestedPlusAccountAccessStrategy === 'function'
+    ? getRequestedPlusAccountAccessStrategy(latestState)
+    : normalizePlusAccountAccessStrategy(latestState?.plusAccountAccessStrategy || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY);
   const rawEnabled = typeof inputPlusModeEnabled !== 'undefined' && inputPlusModeEnabled
     ? Boolean(inputPlusModeEnabled.checked)
     : false;
@@ -8915,6 +9013,7 @@ function updatePlusModeUI() {
       state: {
         ...(latestState || {}),
         plusModeEnabled: rawEnabled,
+        plusAccountAccessStrategy: requestedPlusAccountAccessStrategy,
       },
     })
     : (() => {
@@ -8929,6 +9028,7 @@ function updatePlusModeUI() {
           state: {
             ...(latestState || {}),
             plusModeEnabled: rawEnabled,
+            plusAccountAccessStrategy: requestedPlusAccountAccessStrategy,
           },
         })
         : null;
@@ -8937,6 +9037,10 @@ function updatePlusModeUI() {
     ? Boolean(capabilityState.canShowPlusSettings)
     : true;
   const enabled = supportsPlusMode && rawEnabled;
+  const canEditPlusAccountAccessStrategy = Boolean(capabilityState?.canEditPlusAccountAccessStrategy);
+  const effectivePlusAccountAccessStrategy = capabilityState?.effectivePlusAccountAccessStrategy
+    || requestedPlusAccountAccessStrategy
+    || oauthStrategyValue;
   const method = enabled ? getSelectedPlusPaymentMethod() : defaultMethod;
   const gpcPhoneMode = normalizeGpcHelperPhoneModeValue(
     typeof selectGpcHelperPhoneMode !== 'undefined' && selectGpcHelperPhoneMode
@@ -8990,6 +9094,33 @@ function updatePlusModeUI() {
     }
     row.style.display = enabled ? '' : 'none';
   });
+  [
+    typeof rowPlusAccountAccessStrategy !== 'undefined' ? rowPlusAccountAccessStrategy : null,
+  ].forEach((row) => {
+    if (!row) {
+      return;
+    }
+    row.style.display = enabled ? '' : 'none';
+  });
+  if (typeof selectPlusAccountAccessStrategy !== 'undefined' && selectPlusAccountAccessStrategy) {
+    selectPlusAccountAccessStrategy.dataset.requestedValue = requestedPlusAccountAccessStrategy;
+    selectPlusAccountAccessStrategy.value = effectivePlusAccountAccessStrategy;
+    selectPlusAccountAccessStrategy.disabled = !enabled || !canEditPlusAccountAccessStrategy;
+    selectPlusAccountAccessStrategy.setAttribute('aria-disabled', String(selectPlusAccountAccessStrategy.disabled));
+  }
+  if (typeof plusAccountAccessStrategyCaption !== 'undefined' && plusAccountAccessStrategyCaption) {
+    if (!enabled) {
+      plusAccountAccessStrategyCaption.textContent = '当前来源仅支持 OAuth';
+    } else if (!canEditPlusAccountAccessStrategy) {
+      plusAccountAccessStrategyCaption.textContent = '当前来源仅支持 OAuth';
+    } else if (effectivePlusAccountAccessStrategy === sub2apiSessionStrategyValue) {
+      plusAccountAccessStrategyCaption.textContent = '复用当前 Plus 已登录会话，直接导入到 SUB2API';
+    } else if (effectivePlusAccountAccessStrategy === oauthStrategyValue) {
+      plusAccountAccessStrategyCaption.textContent = '通过 OAuth 回调创建 SUB2API 账号';
+    } else {
+      plusAccountAccessStrategyCaption.textContent = '当前来源仅支持 OAuth';
+    }
+  }
   [
     typeof rowPayPalAccount !== 'undefined' ? rowPayPalAccount : null,
   ].forEach((row) => {
@@ -9362,6 +9493,19 @@ async function ensureGpcApiKeyReadyForStart(options = {}) {
 async function openPlusManualConfirmationDialog(options = {}) {
   const method = String(options.method || '').trim().toLowerCase();
   const gopayValue = typeof PLUS_PAYMENT_METHOD_GOPAY !== 'undefined' ? PLUS_PAYMENT_METHOD_GOPAY : 'gopay';
+  const activeFlowId = String(latestState?.activeFlowId || latestState?.flowId || 'openai').trim().toLowerCase();
+  const panelMode = String(latestState?.panelMode || latestState?.openaiIntegrationTargetId || '').trim().toLowerCase();
+  const signupMethod = String(latestState?.resolvedSignupMethod || latestState?.signupMethod || 'email').trim().toLowerCase();
+  const plusModeEnabled = latestState?.plusModeEnabled === undefined ? true : Boolean(latestState.plusModeEnabled);
+  const plusAccountAccessStrategy = String(latestState?.plusAccountAccessStrategy || 'oauth').trim().toLowerCase();
+  const useSub2ApiSessionImport = plusModeEnabled
+    && activeFlowId === 'openai'
+    && panelMode === 'sub2api'
+    && signupMethod === 'email'
+    && plusAccountAccessStrategy === 'sub2api_codex_session';
+  const continuationActionLabel = useSub2ApiSessionImport
+    ? '导入当前 ChatGPT 会话到 SUB2API'
+    : 'OAuth 登录';
   if (method === 'gopay-otp') {
     if (!sharedFormDialog?.open) {
       return null;
@@ -9405,7 +9549,7 @@ async function openPlusManualConfirmationDialog(options = {}) {
       { id: 'confirm', label: '我已完成订阅', variant: 'btn-primary' },
     ],
     alert: method === gopayValue
-      ? { text: '确认后流程会直接继续到 Plus 模式第 10 步 OAuth 登录。', tone: 'info' }
+      ? { text: `确认后流程会直接继续到 Plus 模式后续的${continuationActionLabel}。`, tone: 'info' }
       : null,
   });
 }
@@ -9420,6 +9564,19 @@ async function syncPlusManualConfirmationDialog() {
 
   const step = Number(latestState?.plusManualConfirmationStep) || 0;
   const method = String(latestState?.plusManualConfirmationMethod || '').trim().toLowerCase();
+  const activeFlowId = String(latestState?.activeFlowId || latestState?.flowId || 'openai').trim().toLowerCase();
+  const panelMode = String(latestState?.panelMode || latestState?.openaiIntegrationTargetId || '').trim().toLowerCase();
+  const signupMethod = String(latestState?.resolvedSignupMethod || latestState?.signupMethod || 'email').trim().toLowerCase();
+  const plusModeEnabled = latestState?.plusModeEnabled === undefined ? true : Boolean(latestState.plusModeEnabled);
+  const plusAccountAccessStrategy = String(latestState?.plusAccountAccessStrategy || 'oauth').trim().toLowerCase();
+  const useSub2ApiSessionImport = plusModeEnabled
+    && activeFlowId === 'openai'
+    && panelMode === 'sub2api'
+    && signupMethod === 'email'
+    && plusAccountAccessStrategy === 'sub2api_codex_session';
+  const continuationActionLabel = useSub2ApiSessionImport
+    ? '导入当前 ChatGPT 会话到 SUB2API'
+    : 'OAuth 登录';
   const title = latestState?.plusManualConfirmationTitle;
   const message = latestState?.plusManualConfirmationMessage;
   activePlusManualConfirmationRequestId = requestId;
@@ -9461,7 +9618,7 @@ async function syncPlusManualConfirmationDialog() {
       showToast(
         method === 'gopay-otp'
           ? 'GPC OTP 已提交，正在继续验证...'
-          : (method === gopayValue ? 'GoPay 订阅已确认，正在继续 OAuth 登录...' : '已确认，流程继续执行中...'),
+          : (method === gopayValue ? `GoPay 订阅已确认，正在继续${continuationActionLabel}...` : '已确认，流程继续执行中...'),
         'info',
         2200
       );
@@ -9776,6 +9933,7 @@ function renderStepsList() {
 
 function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOrOptions = {}, maybeOptions = {}) {
   const defaultFlowId = typeof DEFAULT_ACTIVE_FLOW_ID !== 'undefined' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
+  const defaultStrategy = typeof DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY !== 'undefined' ? DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY : 'oauth';
   const nextPlusModeEnabled = Boolean(plusModeEnabled);
   const options = typeof plusPaymentMethodOrOptions === 'string'
     ? maybeOptions
@@ -9783,6 +9941,11 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
   const rawPaymentMethod = typeof plusPaymentMethodOrOptions === 'string'
     ? plusPaymentMethodOrOptions
     : (options.plusPaymentMethod || getSelectedPlusPaymentMethod(latestState));
+  const nextPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(
+    options.plusAccountAccessStrategy
+      || currentPlusAccountAccessStrategy
+      || defaultStrategy
+  );
   const nextSignupMethod = normalizeSignupMethod(options.signupMethod || currentSignupMethod || DEFAULT_SIGNUP_METHOD);
   const nextPhoneSignupReloginAfterBindEmailEnabled = Boolean(
     options.phoneSignupReloginAfterBindEmailEnabled
@@ -9805,6 +9968,7 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
     activeFlowId: nextActiveFlowId,
     plusModeEnabled: nextPlusModeEnabled,
     plusPaymentMethod: nextPaymentMethod,
+    plusAccountAccessStrategy: nextPlusAccountAccessStrategy,
     signupMethod: nextSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: nextPhoneSignupReloginAfterBindEmailEnabled,
   });
@@ -9812,6 +9976,7 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
   const shouldRender = Boolean(options.render)
     || nextPlusModeEnabled !== currentPlusModeEnabled
     || nextPaymentMethod !== currentPlusPaymentMethod
+    || nextPlusAccountAccessStrategy !== currentPlusAccountAccessStrategy
     || nextSignupMethod !== currentSignupMethod
     || nextPhoneSignupReloginAfterBindEmailEnabled !== currentPhoneSignupReloginAfterBindEmailEnabled
     || nextActiveFlowId !== currentFlowId
@@ -9823,6 +9988,7 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
   rebuildStepDefinitionState(nextPlusModeEnabled, {
     activeFlowId: nextActiveFlowId,
     plusPaymentMethod: nextPaymentMethod,
+    plusAccountAccessStrategy: nextPlusAccountAccessStrategy,
     signupMethod: nextSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: nextPhoneSignupReloginAfterBindEmailEnabled,
   });
@@ -9848,6 +10014,7 @@ function syncStepDefinitionsFromUiState(stateOverrides = {}) {
   syncStepDefinitionsForMode(stepDefinitionState.plusModeEnabled, {
     activeFlowId: nextState?.activeFlowId || nextState?.flowId || DEFAULT_ACTIVE_FLOW_ID,
     plusPaymentMethod: getSelectedPlusPaymentMethod(nextState),
+    plusAccountAccessStrategy: stepDefinitionState.plusAccountAccessStrategy,
     signupMethod: stepDefinitionState.signupMethod,
     phoneSignupReloginAfterBindEmailEnabled: Boolean(nextState?.phoneSignupReloginAfterBindEmailEnabled),
   });
@@ -9948,6 +10115,13 @@ function applySettingsState(state) {
   }
   if (typeof selectPlusPaymentMethod !== 'undefined' && selectPlusPaymentMethod) {
     selectPlusPaymentMethod.value = normalizePlusPaymentMethod(state?.plusPaymentMethod);
+  }
+  currentPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(
+    state?.plusAccountAccessStrategy || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY
+  );
+  if (typeof selectPlusAccountAccessStrategy !== 'undefined' && selectPlusAccountAccessStrategy) {
+    selectPlusAccountAccessStrategy.dataset.requestedValue = currentPlusAccountAccessStrategy;
+    selectPlusAccountAccessStrategy.value = currentPlusAccountAccessStrategy;
   }
   if (typeof inputGpcHelperApi !== 'undefined' && inputGpcHelperApi) {
     const defaultGpcHelperApiUrl = typeof DEFAULT_GPC_HELPER_API_URL !== 'undefined'
@@ -14213,6 +14387,13 @@ selectPanelMode.addEventListener('change', async () => {
   saveSettings({ silent: true }).catch(() => { });
 });
 
+selectPlusAccountAccessStrategy?.addEventListener('change', () => {
+  selectPlusAccountAccessStrategy.value = normalizePlusAccountAccessStrategy(selectPlusAccountAccessStrategy.value);
+  updatePlusModeUI();
+  markSettingsDirty(true);
+  saveSettings({ silent: true }).catch(() => { });
+});
+
 [inputKiroRsUrl, inputKiroRsKey].forEach((input) => {
   input?.addEventListener('input', () => {
     markSettingsDirty(true);
@@ -16157,6 +16338,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.payload.plusPaymentMethod !== undefined && selectPlusPaymentMethod) {
         selectPlusPaymentMethod.value = normalizePlusPaymentMethod(message.payload.plusPaymentMethod);
       }
+      if (message.payload.plusAccountAccessStrategy !== undefined && selectPlusAccountAccessStrategy) {
+        currentPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(message.payload.plusAccountAccessStrategy);
+        selectPlusAccountAccessStrategy.dataset.requestedValue = currentPlusAccountAccessStrategy;
+        if (!selectPlusAccountAccessStrategy.disabled) {
+          selectPlusAccountAccessStrategy.value = currentPlusAccountAccessStrategy;
+        }
+      }
       if (message.payload.gopayHelperPhoneMode !== undefined && selectGpcHelperPhoneMode) {
         selectGpcHelperPhoneMode.value = normalizeGpcHelperPhoneModeValue(message.payload.gopayHelperPhoneMode);
       }
@@ -16181,6 +16369,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (
         message.payload.plusModeEnabled !== undefined
         || message.payload.plusPaymentMethod !== undefined
+        || message.payload.plusAccountAccessStrategy !== undefined
         || message.payload.gopayHelperPhoneMode !== undefined
         || message.payload.gopayHelperAutoModeEnabled !== undefined
         || message.payload.gopayHelperOtpChannel !== undefined

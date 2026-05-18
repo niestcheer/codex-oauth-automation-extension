@@ -173,8 +173,8 @@ const defaultStepDefinitions = {
   4: { key: 'verify-email' },
   5: { key: 'profile-basic' },
   6: { key: 'profile-finish' },
-  7: { key: 'auth-login' },
-  8: { key: 'auth-email-code' },
+  7: { key: 'oauth-login' },
+  8: { key: 'fetch-login-code' },
   9: { key: 'confirm-oauth' },
   10: { key: 'platform-verify' },
 };
@@ -407,7 +407,7 @@ test('auto-run keeps restarting from step 7 after post-login failures without a 
       7, 8, 9, 10,
     ]
   );
-  assert.ok(events.logs.some(({ message }) => /回到节点 auth-login 重新开始授权流程/.test(message)));
+  assert.ok(events.logs.some(({ message }) => /回到节点 oauth-login 重新开始授权流程/.test(message)));
 });
 
 test('auto-run restarts the current step after five minutes without new logs', async () => {
@@ -963,4 +963,43 @@ test('auto-run does not restart GPC checkout when account already has a ChatGPT 
   assert.deepStrictEqual(result.events.steps, [6, 7]);
   assert.equal(result.events.invalidations.length, 0);
   assert.ok(!result.events.logs.some(({ message }) => /回到步骤 6 重新创建 GPC 任务/.test(message)));
+});
+
+test('auto-run does not reroute SUB2API session import failures into OAuth restarts', async () => {
+  const plusSessionSteps = {
+    6: { key: 'plus-checkout-create' },
+    7: { key: 'plus-checkout-billing' },
+    8: { key: 'paypal-approve' },
+    9: { key: 'plus-checkout-return' },
+    10: { key: 'sub2api-session-import' },
+  };
+  const harness = createHarness({
+    startStep: 10,
+    failureStep: 10,
+    failureBudget: 1,
+    failureMessage: '步骤 10：当前页面未读取到有效的 ChatGPT session。',
+    stepDefinitions: plusSessionSteps,
+    finalOAuthChainStartStep: 10,
+    customState: {
+      stepStatuses: {
+        3: 'completed',
+        6: 'completed',
+        7: 'completed',
+        8: 'completed',
+        9: 'completed',
+      },
+      plusModeEnabled: true,
+      plusPaymentMethod: 'paypal',
+      panelMode: 'sub2api',
+      plusAccountAccessStrategy: 'sub2api_codex_session',
+    },
+  });
+
+  const result = await harness.runAndCaptureError();
+
+  assert.ok(result?.error);
+  assert.match(result.error.message, /未读取到有效的 ChatGPT session/);
+  assert.deepStrictEqual(result.events.steps, [10]);
+  assert.equal(result.events.invalidations.length, 0);
+  assert.ok(!result.events.logs.some(({ message }) => /回到节点 oauth-login|回到节点 confirm-oauth|重新开始授权流程/.test(message)));
 });

@@ -48,6 +48,15 @@ function extractFunction(name) {
   return source.slice(start, end);
 }
 
+test('background auth chain set does not include SUB2API session import node', () => {
+  const authChainStart = source.indexOf('const AUTH_CHAIN_NODE_IDS = new Set([');
+  const authChainEnd = source.indexOf(']);', authChainStart);
+  const authChainBlock = source.slice(authChainStart, authChainEnd);
+
+  assert.ok(authChainStart >= 0, 'expected AUTH_CHAIN_NODE_IDS block to exist');
+  assert.doesNotMatch(authChainBlock, /sub2api-session-import/);
+});
+
 const NODE_EXECUTE_COMPAT_HELPERS = `
 const AUTH_CHAIN_NODE_IDS = new Set(['oauth-login', 'fetch-login-code', 'confirm-oauth', 'platform-verify']);
 const STEP_NODE_IDS = {
