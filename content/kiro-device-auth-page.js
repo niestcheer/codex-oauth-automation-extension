@@ -1,0 +1,552 @@
+console.log('[MultiPage:kiro-device-auth] Content script loaded on', location.href);
+
+const KIRO_DEVICE_AUTH_LISTENER_SENTINEL = 'data-multipage-kiro-device-auth-listener';
+const KIRO_CONTINUE_TEXT_PATTERN = /continue|继续/i;
+const KIRO_CONFIRM_CONTINUE_TEXT_PATTERN = /confirm and continue|确认并继续/i;
+const KIRO_ALLOW_ACCESS_TEXT_PATTERN = /allow access|允许访问/i;
+const KIRO_SUCCESS_TEXT_PATTERN = /authorization successful|you may now close this window|you are now signed in|授权成功|可以关闭此窗口|已登录/i;
+
+const KIRO_EMAIL_INPUT_SELECTOR = [
+  'input[placeholder="username@example.com"]',
+  'input[type="email"]',
+  'input[name="email"]',
+  'input[autocomplete="username"]',
+  'input[placeholder*="example.com" i]',
+].join(', ');
+
+const KIRO_NAME_INPUT_SELECTOR = [
+  'input[placeholder*="Silva" i]',
+  'input[autocomplete="name"]',
+  'input[name="name"]',
+  'input[name="fullName"]',
+].join(', ');
+
+const KIRO_OTP_INPUT_SELECTOR = [
+  'input[autocomplete="one-time-code"]',
+  'input[inputmode="numeric"]',
+  'input[placeholder*="6-digit" i]',
+  'input[placeholder*="6 位" i]',
+  'input[name*="otp" i]',
+  'input[name*="code" i]',
+].join(', ');
+
+const KIRO_PASSWORD_INPUT_SELECTOR = [
+  'input[placeholder="Enter password"]',
+  'input[placeholder*="Create password" i]',
+  'input[placeholder*="Password" i]',
+  'input[name="password"]',
+  'input[id*="password" i]',
+  'input[type="password"]',
+].join(', ');
+
+const KIRO_CONFIRM_PASSWORD_SELECTOR = [
+  'input[placeholder*="Re-enter password" i]',
+  'input[placeholder*="Confirm password" i]',
+  'input[placeholder*="Confirm Password" i]',
+  'input[name="confirmPassword"]',
+  'input[id*="confirm" i]',
+].join(', ');
+
+function isVisibleKiroElement(el) {
+  if (!el) return false;
+  const style = window.getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return style.display !== 'none'
+    && style.visibility !== 'hidden'
+    && rect.width > 0
+    && rect.height > 0;
+}
+
+function getKiroPageText() {
+  return String(document.body?.textContent || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function collectVisibleElements(selector) {
+  return Array.from(document.querySelectorAll(selector))
+    .filter((el) => isVisibleKiroElement(el));
+}
+
+function findFirstVisible(selector) {
+  return collectVisibleElements(selector)[0] || null;
+}
+
+function getElementActionText(el) {
+  return [
+    el?.textContent,
+    el?.value,
+    el?.getAttribute?.('aria-label'),
+    el?.getAttribute?.('title'),
+    el?.getAttribute?.('data-testid'),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findActionButton(options = {}) {
+  const {
+    preferredSelectors = [],
+    textPattern = null,
+    formOwner = null,
+  } = options;
+
+  for (const selector of preferredSelectors) {
+    const preferred = findFirstVisible(selector);
+    if (preferred && !preferred.disabled && preferred.getAttribute('aria-disabled') !== 'true') {
+      return preferred;
+    }
+  }
+
+  const candidates = collectVisibleElements('button, [role="button"], input[type="submit"], input[type="button"]')
+    .filter((el) => !el.disabled && el.getAttribute('aria-disabled') !== 'true');
+
+  const prioritized = formOwner
+    ? candidates.filter((el) => (el.form || el.closest?.('form') || null) === formOwner)
+    : [];
+  const pool = prioritized.length ? prioritized : candidates;
+
+  if (textPattern instanceof RegExp) {
+    return pool.find((el) => textPattern.test(getElementActionText(el))) || null;
+  }
+
+  return pool[0] || null;
+}
+
+function findVisibleEmailInput() {
+  return findFirstVisible(KIRO_EMAIL_INPUT_SELECTOR);
+}
+
+function findVisibleNameInput() {
+  return findFirstVisible(KIRO_NAME_INPUT_SELECTOR);
+}
+
+function findVisibleOtpInput() {
+  return findFirstVisible(KIRO_OTP_INPUT_SELECTOR);
+}
+
+function findVisiblePasswordInputs() {
+  return collectVisibleElements(KIRO_PASSWORD_INPUT_SELECTOR);
+}
+
+function findVisibleConfirmPasswordInput() {
+  return findFirstVisible(KIRO_CONFIRM_PASSWORD_SELECTOR);
+}
+
+function findEmailContinueButton(emailInput = null) {
+  const form = emailInput?.form || emailInput?.closest?.('form') || null;
+  return findActionButton({
+    preferredSelectors: ['button[data-testid="test-primary-button"]'],
+    textPattern: KIRO_CONTINUE_TEXT_PATTERN,
+    formOwner: form,
+  });
+}
+
+function findNameContinueButton(nameInput = null) {
+  const form = nameInput?.form || nameInput?.closest?.('form') || null;
+  return findActionButton({
+    preferredSelectors: ['button[data-testid="signup-next-button"]'],
+    textPattern: KIRO_CONTINUE_TEXT_PATTERN,
+    formOwner: form,
+  });
+}
+
+function findOtpVerifyButton(otpInput = null) {
+  const form = otpInput?.form || otpInput?.closest?.('form') || null;
+  return findActionButton({
+    preferredSelectors: ['button[data-testid="email-verification-verify-button"]'],
+    textPattern: KIRO_CONTINUE_TEXT_PATTERN,
+    formOwner: form,
+  });
+}
+
+function findPasswordContinueButton(passwordInput = null) {
+  const form = passwordInput?.form || passwordInput?.closest?.('form') || null;
+  return findActionButton({
+    preferredSelectors: ['button[data-testid="test-primary-button"]'],
+    textPattern: KIRO_CONTINUE_TEXT_PATTERN,
+    formOwner: form,
+  });
+}
+
+function getAuthorizationActionKind(text = '') {
+  if (KIRO_CONFIRM_CONTINUE_TEXT_PATTERN.test(text)) {
+    return 'confirm_continue';
+  }
+  if (KIRO_ALLOW_ACCESS_TEXT_PATTERN.test(text)) {
+    return 'allow_access';
+  }
+  return 'unknown';
+}
+
+function findAuthorizationActionButton() {
+  return findActionButton({
+    preferredSelectors: [
+      'button[data-testid="confirm-button"]',
+      'button[data-testid="allow-access-button"]',
+    ],
+    textPattern: /confirm and continue|allow access|确认并继续|允许访问/i,
+  });
+}
+
+function detectKiroPageState() {
+  const pageText = getKiroPageText();
+  const currentUrl = location.href;
+
+  const passwordInputs = findVisiblePasswordInputs();
+  const confirmPasswordInput = findVisibleConfirmPasswordInput();
+  if (passwordInputs.length) {
+    const passwordInput = passwordInputs[0];
+    return {
+      state: 'password_page',
+      url: currentUrl,
+      passwordInput,
+      confirmPasswordInput,
+      continueButton: findPasswordContinueButton(passwordInput),
+    };
+  }
+
+  const authorizationButton = findAuthorizationActionButton();
+  if (authorizationButton) {
+    const authorizationActionText = getElementActionText(authorizationButton);
+    return {
+      state: 'authorization_page',
+      url: currentUrl,
+      actionButton: authorizationButton,
+      authorizationActionKind: getAuthorizationActionKind(authorizationActionText),
+      authorizationActionText,
+    };
+  }
+
+  if (
+    KIRO_SUCCESS_TEXT_PATTERN.test(pageText)
+    || /request approved|access your data|请求已批准|访问您的数据/i.test(pageText)
+  ) {
+    return {
+      state: 'success_page',
+      url: currentUrl,
+    };
+  }
+
+  const otpInput = findVisibleOtpInput();
+  if (otpInput) {
+    return {
+      state: 'otp_page',
+      url: currentUrl,
+      otpInput,
+      verifyButton: findOtpVerifyButton(otpInput),
+    };
+  }
+
+  const nameInput = findVisibleNameInput();
+  if (nameInput) {
+    return {
+      state: 'name_entry',
+      url: currentUrl,
+      nameInput,
+      continueButton: findNameContinueButton(nameInput),
+    };
+  }
+
+  const emailInput = findVisibleEmailInput();
+  if (emailInput) {
+    return {
+      state: 'email_entry',
+      url: currentUrl,
+      emailInput,
+      continueButton: findEmailContinueButton(emailInput),
+    };
+  }
+
+  return {
+    state: 'loading',
+    url: currentUrl,
+  };
+}
+
+async function waitForKiroState(predicate, options = {}) {
+  const timeoutMs = Math.max(1000, Math.floor(Number(options.timeoutMs) || 30000));
+  const retryDelayMs = Math.max(100, Math.floor(Number(options.retryDelayMs) || 250));
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    throwIfStopped();
+    const detected = detectKiroPageState();
+    if (predicate(detected)) {
+      return detected;
+    }
+    await sleep(retryDelayMs);
+  }
+
+  const finalState = detectKiroPageState();
+  throw new Error(options.timeoutMessage || `等待 Kiro 页面状态超时：${finalState.state}`);
+}
+
+async function ensureKiroPageState(payload = {}) {
+  const targetStates = Array.isArray(payload?.targetStates)
+    ? payload.targetStates.map((entry) => String(entry || '').trim()).filter(Boolean)
+    : [];
+  if (!targetStates.length) {
+    throw new Error('缺少 Kiro 目标页面状态。');
+  }
+
+  return waitForKiroState(
+    (detected) => targetStates.includes(detected.state),
+    {
+      timeoutMs: payload?.timeoutMs,
+      retryDelayMs: payload?.retryDelayMs,
+      timeoutMessage: payload?.timeoutMessage || `等待 Kiro 页面进入 ${targetStates.join(' / ')} 超时，当前页面：${location.href}`,
+    }
+  );
+}
+
+async function waitForKiroStateChange(payload = {}) {
+  const fromStates = Array.isArray(payload?.fromStates)
+    ? payload.fromStates.map((entry) => String(entry || '').trim()).filter(Boolean)
+    : [];
+  if (!fromStates.length) {
+    throw new Error('缺少 Kiro 原始页面状态。');
+  }
+
+  return waitForKiroState(
+    (detected) => detected.state !== 'loading' && !fromStates.includes(detected.state),
+    {
+      timeoutMs: payload?.timeoutMs,
+      retryDelayMs: payload?.retryDelayMs,
+      timeoutMessage: payload?.timeoutMessage || `等待 Kiro 页面离开 ${fromStates.join(' / ')} 超时，当前页面：${location.href}`,
+    }
+  );
+}
+
+async function waitForKiroAuthorizationAdvance(previousState = {}, options = {}) {
+  return waitForKiroState(
+    (detected) => {
+      if (detected.state === 'success_page') {
+        return true;
+      }
+      if (detected.state !== 'authorization_page') {
+        return false;
+      }
+      const previousKind = String(previousState?.authorizationActionKind || '').trim();
+      const previousText = String(previousState?.authorizationActionText || '').trim();
+      const previousUrl = String(previousState?.url || '').trim();
+      const nextKind = String(detected.authorizationActionKind || '').trim();
+      const nextText = String(detected.authorizationActionText || '').trim();
+      return nextKind !== previousKind
+        || nextText !== previousText
+        || String(detected.url || '').trim() !== previousUrl;
+    },
+    {
+      timeoutMs: options.timeoutMs,
+      retryDelayMs: options.retryDelayMs,
+      timeoutMessage: options.timeoutMessage || `等待 Kiro 授权页进入下一步超时：${location.href}`,
+    }
+  );
+}
+
+async function submitKiroEmail(payload = {}) {
+  const email = String(payload?.email || '').trim();
+  if (!email) {
+    throw new Error('缺少 Kiro 授权邮箱，无法继续提交。');
+  }
+
+  const readyState = await ensureKiroPageState({
+    targetStates: ['email_entry'],
+    timeoutMs: payload?.timeoutMs || 30000,
+    retryDelayMs: payload?.retryDelayMs || 250,
+  });
+  if (!readyState.emailInput || !readyState.continueButton) {
+    throw new Error('Kiro 邮箱页未找到可用的输入框或继续按钮。');
+  }
+
+  fillInput(readyState.emailInput, email);
+  await sleep(200);
+  simulateClick(readyState.continueButton);
+  return {
+    submitted: true,
+    state: 'email_submitted',
+    url: location.href,
+  };
+}
+
+async function submitKiroName(payload = {}) {
+  const fullName = String(payload?.fullName || '').trim();
+  if (!fullName) {
+    throw new Error('缺少 Kiro 注册姓名，无法继续提交。');
+  }
+
+  const readyState = await ensureKiroPageState({
+    targetStates: ['name_entry'],
+    timeoutMs: payload?.timeoutMs || 30000,
+    retryDelayMs: payload?.retryDelayMs || 250,
+  });
+  if (!readyState.nameInput || !readyState.continueButton) {
+    throw new Error('Kiro 姓名页未找到可用的输入框或继续按钮。');
+  }
+
+  fillInput(readyState.nameInput, fullName);
+  await sleep(200);
+  simulateClick(readyState.continueButton);
+  return {
+    submitted: true,
+    state: 'name_submitted',
+    url: location.href,
+  };
+}
+
+async function submitKiroVerificationCode(payload = {}) {
+  const code = String(payload?.code || '').trim();
+  if (!code) {
+    throw new Error('缺少 Kiro 邮箱验证码，无法继续提交。');
+  }
+
+  const readyState = await ensureKiroPageState({
+    targetStates: ['otp_page'],
+    timeoutMs: payload?.timeoutMs || 30000,
+    retryDelayMs: payload?.retryDelayMs || 250,
+  });
+  if (!readyState.otpInput || !readyState.verifyButton) {
+    throw new Error('Kiro 验证码页未找到可用的输入框或继续按钮。');
+  }
+
+  fillInput(readyState.otpInput, code);
+  await sleep(200);
+  simulateClick(readyState.verifyButton);
+  return {
+    submitted: true,
+    state: 'verification_submitted',
+    url: location.href,
+  };
+}
+
+async function submitKiroPassword(payload = {}) {
+  const password = String(payload?.password || '');
+  if (!password) {
+    throw new Error('缺少 Kiro 账户密码，无法继续提交。');
+  }
+
+  const readyState = await ensureKiroPageState({
+    targetStates: ['password_page'],
+    timeoutMs: payload?.timeoutMs || 30000,
+    retryDelayMs: payload?.retryDelayMs || 250,
+  });
+  if (!readyState.passwordInput || !readyState.continueButton) {
+    throw new Error('Kiro 密码页未找到可用的密码框或继续按钮。');
+  }
+
+  fillInput(readyState.passwordInput, password);
+  await sleep(150);
+
+  const confirmPasswordInput = readyState.confirmPasswordInput
+    || (() => {
+      const passwordInputs = findVisiblePasswordInputs();
+      return passwordInputs.length > 1 ? passwordInputs[1] : null;
+    })();
+  if (confirmPasswordInput && confirmPasswordInput !== readyState.passwordInput) {
+    fillInput(confirmPasswordInput, password);
+    await sleep(150);
+  }
+
+  simulateClick(readyState.continueButton);
+  return {
+    submitted: true,
+    state: 'password_submitted',
+    url: location.href,
+  };
+}
+
+async function confirmKiroAccess(payload = {}) {
+  let currentState = await ensureKiroPageState({
+    targetStates: ['authorization_page', 'success_page'],
+    timeoutMs: payload?.timeoutMs || 45000,
+    retryDelayMs: payload?.retryDelayMs || 250,
+  });
+
+  const maxActions = Math.max(1, Math.min(4, Number(payload?.maxActions) || 3));
+  const actions = [];
+  while (currentState.state === 'authorization_page' && actions.length < maxActions) {
+    if (!currentState.actionButton) {
+      throw new Error('Kiro 授权页未找到可用的授权按钮。');
+    }
+
+    actions.push({
+      kind: currentState.authorizationActionKind || 'unknown',
+      text: currentState.authorizationActionText || getElementActionText(currentState.actionButton),
+    });
+    simulateClick(currentState.actionButton);
+    currentState = await waitForKiroAuthorizationAdvance(currentState, {
+      timeoutMs: payload?.timeoutMs || 45000,
+      retryDelayMs: payload?.retryDelayMs || 250,
+      timeoutMessage: 'Kiro 授权按钮点击后页面未继续，请检查当前授权页状态。',
+    });
+  }
+
+  if (currentState.state !== 'success_page') {
+    throw new Error('Kiro 授权页未完成确认访问流程。');
+  }
+
+  return {
+    submitted: true,
+    state: currentState.state,
+    url: currentState.url || location.href,
+    actions,
+  };
+}
+
+async function handleKiroDeviceAuthCommand(message) {
+  switch (message.type) {
+    case 'ENSURE_KIRO_PAGE_STATE':
+      return ensureKiroPageState(message.payload || {});
+    case 'ENSURE_KIRO_STATE_CHANGE':
+      return waitForKiroStateChange(message.payload || {});
+    case 'EXECUTE_NODE': {
+      const nodeId = String(message.nodeId || message.payload?.nodeId || '').trim();
+      if (nodeId === 'kiro-submit-email') {
+        return submitKiroEmail(message.payload || {});
+      }
+      if (nodeId === 'kiro-submit-name') {
+        return submitKiroName(message.payload || {});
+      }
+      if (nodeId === 'kiro-submit-verification-code') {
+        return submitKiroVerificationCode(message.payload || {});
+      }
+      if (nodeId === 'kiro-fill-password') {
+        return submitKiroPassword(message.payload || {});
+      }
+      if (nodeId === 'kiro-confirm-access') {
+        return confirmKiroAccess(message.payload || {});
+      }
+      throw new Error(`kiro-device-auth-page.js 不处理节点：${nodeId}`);
+    }
+    default:
+      return null;
+  }
+}
+
+if (document.documentElement.getAttribute(KIRO_DEVICE_AUTH_LISTENER_SENTINEL) !== '1') {
+  document.documentElement.setAttribute(KIRO_DEVICE_AUTH_LISTENER_SENTINEL, '1');
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (
+      message.type === 'ENSURE_KIRO_PAGE_STATE'
+      || message.type === 'ENSURE_KIRO_STATE_CHANGE'
+      || message.type === 'EXECUTE_NODE'
+    ) {
+      resetStopState();
+      handleKiroDeviceAuthCommand(message)
+        .then((result) => {
+          sendResponse({ ok: true, ...(result || {}) });
+        })
+        .catch((error) => {
+          if (isStopError(error)) {
+            sendResponse({ stopped: true, error: error.message });
+            return;
+          }
+          sendResponse({ error: error?.message || String(error || '未知错误') });
+        });
+      return true;
+    }
+    return false;
+  });
+}

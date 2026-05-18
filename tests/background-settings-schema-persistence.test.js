@@ -205,7 +205,7 @@ test('buildPersistentSettingsPayload accepts schema-only input when requireKnown
           options: {
           },
           autoRun: {
-            stepExecutionRange: { enabled: true, fromStep: 1, toStep: 3 },
+            stepExecutionRange: { enabled: true, fromStep: 1, toStep: 7 },
           },
         },
       },
@@ -293,7 +293,7 @@ const chrome = {
                 options: {
                 },
                 autoRun: {
-                  stepExecutionRange: { enabled: true, fromStep: 1, toStep: 3 },
+                  stepExecutionRange: { enabled: true, fromStep: 1, toStep: 7 },
                 },
               },
             },
@@ -317,7 +317,7 @@ const chrome = {
   assert.deepEqual(state.stepExecutionRangeByFlow.kiro, {
     enabled: true,
     fromStep: 1,
-    toStep: 3,
+    toStep: 7,
   });
 });
 
@@ -379,7 +379,7 @@ function getPersistedWrites() {
           options: {
           },
           autoRun: {
-            stepExecutionRange: { enabled: true, fromStep: 1, toStep: 3 },
+            stepExecutionRange: { enabled: true, fromStep: 1, toStep: 7 },
           },
         },
       },

@@ -8,7 +8,15 @@ test('auto-run controller preserves kiro flow across fresh reset and starts from
   const api = new Function('self', `${source}; return self.MultiPageBackgroundAutoRunController;`)(globalScope);
 
   const executedNodeIds = [];
-  const kiroNodeIds = ['kiro-start-device-login', 'kiro-await-device-login', 'kiro-upload-credential'];
+  const kiroNodeIds = [
+    'kiro-start-device-login',
+    'kiro-submit-email',
+    'kiro-submit-name',
+    'kiro-submit-verification-code',
+    'kiro-fill-password',
+    'kiro-confirm-access',
+    'kiro-upload-credential',
+  ];
   const openAiNodeIds = ['open-chatgpt', 'submit-signup-email', 'fill-password'];
   let helperCalls = 0;
   let sessionSeed = 700;
@@ -33,12 +41,16 @@ test('auto-run controller preserves kiro flow across fresh reset and starts from
     signupMethod: 'email',
     stepExecutionRangeByFlow: {
       openai: { enabled: false, fromStep: 1, toStep: 11 },
-      kiro: { enabled: false, fromStep: 1, toStep: 3 },
+      kiro: { enabled: false, fromStep: 1, toStep: 7 },
     },
     nodeStatuses: {
       'open-chatgpt': 'stopped',
       'kiro-start-device-login': 'pending',
-      'kiro-await-device-login': 'pending',
+      'kiro-submit-email': 'pending',
+      'kiro-submit-name': 'pending',
+      'kiro-submit-verification-code': 'pending',
+      'kiro-fill-password': 'pending',
+      'kiro-confirm-access': 'pending',
       'kiro-upload-credential': 'pending',
     },
     tabRegistry: {
@@ -172,7 +184,7 @@ test('auto-run controller preserves kiro flow across fresh reset and starts from
         signupMethod: 'email',
         stepExecutionRangeByFlow: {
           openai: { enabled: false, fromStep: 1, toStep: 11 },
-          kiro: { enabled: false, fromStep: 1, toStep: 3 },
+          kiro: { enabled: false, fromStep: 1, toStep: 7 },
         },
         nodeStatuses: {},
         tabRegistry: {},
@@ -190,7 +202,11 @@ test('auto-run controller preserves kiro flow across fresh reset and starts from
         ...currentState,
         nodeStatuses: {
           'kiro-start-device-login': 'completed',
-          'kiro-await-device-login': 'completed',
+          'kiro-submit-email': 'completed',
+          'kiro-submit-name': 'completed',
+          'kiro-submit-verification-code': 'completed',
+          'kiro-fill-password': 'completed',
+          'kiro-confirm-access': 'completed',
           'kiro-upload-credential': 'completed',
         },
       };

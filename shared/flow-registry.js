@@ -7,7 +7,7 @@
   const DEFAULT_KIRO_SOURCE_ID = 'kiro-rs';
   const DEFAULT_KIRO_RS_URL = 'https://kiro.leftcode.xyz/admin';
   const OPENAI_SOURCE_IDS = Object.freeze(['cpa', 'sub2api', 'codex2api']);
-  const SHARED_SERVICE_IDS = Object.freeze(['email', 'proxy']);
+  const SHARED_SERVICE_IDS = Object.freeze(['account', 'email', 'proxy']);
 
   const DEFAULT_FLOW_CAPABILITIES = Object.freeze({
     supportsEmailSignup: true,
@@ -37,7 +37,7 @@
     openai: {
       id: 'openai',
       label: 'Codex / OpenAI',
-      services: ['email', 'proxy'],
+      services: ['account', 'email', 'proxy'],
       capabilities: {
         ...DEFAULT_FLOW_CAPABILITIES,
         supportsPhoneSignup: true,
@@ -50,7 +50,6 @@
         stepDefinitionMode: 'openai-dynamic',
       },
       baseGroups: [
-        'openai-account',
         'openai-plus',
         'openai-phone',
         'openai-oauth',
@@ -203,7 +202,7 @@
     kiro: {
       id: 'kiro',
       label: 'Kiro',
-      services: ['email', 'proxy'],
+      services: ['account', 'email', 'proxy'],
       capabilities: {
         ...DEFAULT_FLOW_CAPABILITIES,
         stepDefinitionMode: 'kiro-device-auth',
@@ -225,7 +224,7 @@
           label: 'Kiro 授权页',
           readyPolicy: 'top-frame-only',
           family: 'kiro-device-auth-family',
-          driverId: null,
+          driverId: 'content/kiro-device-auth-page',
           cleanupScopes: [],
         },
         'kiro-rs-admin': {
@@ -239,11 +238,25 @@
         },
       },
       driverDefinitions: {
+        'content/kiro-device-auth-page': {
+          sourceId: 'kiro-device-auth',
+          commands: [
+            'kiro-submit-email',
+            'kiro-submit-name',
+            'kiro-submit-verification-code',
+            'kiro-fill-password',
+            'kiro-confirm-access',
+          ],
+        },
         'background/kiro-device-auth': {
           sourceId: 'kiro-device-auth',
           commands: [
             'kiro-start-device-login',
-            'kiro-await-device-login',
+            'kiro-submit-email',
+            'kiro-submit-name',
+            'kiro-submit-verification-code',
+            'kiro-fill-password',
+            'kiro-confirm-access',
             'kiro-upload-credential',
           ],
         },
@@ -252,6 +265,11 @@
   });
 
   const SETTINGS_GROUP_DEFINITIONS = freezeDeep({
+    'service-account': {
+      id: 'service-account',
+      label: '账户',
+      rowIds: ['row-custom-password'],
+    },
     'service-email': {
       id: 'service-email',
       label: '邮箱服务',
@@ -282,11 +300,6 @@
       id: 'openai-source-codex2api',
       label: 'Codex2API 来源',
       rowIds: ['row-codex2api-url', 'row-codex2api-admin-key'],
-    },
-    'openai-account': {
-      id: 'openai-account',
-      label: '账户',
-      rowIds: ['row-custom-password'],
     },
     'openai-plus': {
       id: 'openai-plus',

@@ -66,5 +66,15 @@ test('shared source registry exposes canonical source, alias, detection, and rea
   assert.equal(registry.driverAcceptsCommand('openai-auth', 'fetch-bind-email-code'), true);
   assert.equal(registry.driverAcceptsCommand('content/platform-panel', 'platform-verify'), true);
   assert.equal(registry.driverAcceptsCommand('openai-auth', 'platform-verify'), false);
+  assert.equal(registry.driverAcceptsCommand('content/kiro-device-auth-page', 'kiro-submit-email'), true);
+  assert.equal(registry.driverAcceptsCommand('content/kiro-device-auth-page', 'kiro-submit-name'), true);
+  assert.equal(registry.driverAcceptsCommand('content/kiro-device-auth-page', 'kiro-submit-verification-code'), true);
+  assert.equal(registry.driverAcceptsCommand('content/kiro-device-auth-page', 'kiro-fill-password'), true);
+  assert.equal(registry.driverAcceptsCommand('content/kiro-device-auth-page', 'kiro-confirm-access'), true);
   assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-start-device-login'), true);
+  assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-submit-email'), true);
+  assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-submit-name'), true);
+  assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-submit-verification-code'), true);
+  assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-fill-password'), true);
+  assert.equal(registry.driverAcceptsCommand('background/kiro-device-auth', 'kiro-confirm-access'), true);
 });

@@ -98,7 +98,7 @@ test('flow capability registry exposes Kiro as an independent flow with its own 
   assert.equal(capabilityState.effectiveSourceId, 'kiro-rs');
   assert.deepEqual(
     capabilityState.visibleGroupIds,
-    ['kiro-runtime-status', 'kiro-source-kiro-rs', 'service-email', 'service-proxy']
+    ['kiro-runtime-status', 'kiro-source-kiro-rs', 'service-account', 'service-email', 'service-proxy']
   );
 });
 

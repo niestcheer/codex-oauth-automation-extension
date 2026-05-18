@@ -13154,15 +13154,16 @@ stepsList?.addEventListener('click', async (event) => {
     if (step === gpcCreateStep && !(await ensureGpcApiKeyReadyForStart())) {
       return;
     }
-    if (step === 3) {
-      if (inputPassword.value !== (latestState?.customPassword || '')) {
-        await chrome.runtime.sendMessage({
-          type: 'SAVE_SETTING',
-          source: 'sidepanel',
-          payload: { customPassword: inputPassword.value },
-        });
-        syncLatestState({ customPassword: inputPassword.value });
-      }
+    const shouldPersistSharedPassword = nodeId === 'fill-password' || nodeId === 'kiro-fill-password';
+    if (shouldPersistSharedPassword && inputPassword.value !== (latestState?.customPassword || '')) {
+      await chrome.runtime.sendMessage({
+        type: 'SAVE_SETTING',
+        source: 'sidepanel',
+        payload: { customPassword: inputPassword.value },
+      });
+      syncLatestState({ customPassword: inputPassword.value });
+    }
+    if (nodeId === 'fill-password') {
       if (shouldExecuteStep3WithSignupPhoneIdentity(latestState)) {
         const response = await sendSidepanelMessage({ type: 'EXECUTE_NODE', source: 'sidepanel', payload: { nodeId } });
         if (response?.error) {

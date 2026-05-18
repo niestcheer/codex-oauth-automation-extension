@@ -57,6 +57,9 @@
         schemaVersion: 3,
         activeFlowId: defaultFlowId,
         services: {
+          account: {
+            customPassword: '',
+          },
           email: {
             provider: '163',
           },
@@ -90,9 +93,6 @@
                   codex2apiAdminKey: '',
                 },
               },
-            },
-            account: {
-              customPassword: '',
             },
             signup: {
               signupMethod: 'email',
@@ -131,7 +131,7 @@
               stepExecutionRange: {
                 enabled: false,
                 fromStep: 1,
-                toStep: 3,
+                toStep: 7,
               },
             },
           },
@@ -202,6 +202,14 @@
               ?? defaults.services.proxy.mode
             ).trim() || defaults.services.proxy.mode,
           },
+          account: {
+            customPassword: String(
+              input?.customPassword
+              ?? nested?.services?.account?.customPassword
+              ?? nested?.flows?.openai?.account?.customPassword
+              ?? defaults.services.account.customPassword
+            ).trim(),
+          },
         },
         flows: {
           openai: {
@@ -241,9 +249,6 @@
                   codex2apiAdminKey: String(input?.codex2apiAdminKey ?? nested?.flows?.openai?.source?.entries?.codex2api?.codex2apiAdminKey ?? '').trim(),
                 },
               },
-            },
-            account: {
-              customPassword: String(input?.customPassword ?? nested?.flows?.openai?.account?.customPassword ?? '').trim(),
             },
             signup: {
               signupMethod: String(input?.signupMethod ?? nested?.flows?.openai?.signup?.signupMethod ?? defaults.flows.openai.signup.signupMethod).trim().toLowerCase() === 'phone' ? 'phone' : 'email',
@@ -370,7 +375,7 @@
       next.sub2apiDefaultProxyName = openaiState.source.entries.sub2api.sub2apiDefaultProxyName;
       next.codex2apiUrl = openaiState.source.entries.codex2api.codex2apiUrl;
       next.codex2apiAdminKey = openaiState.source.entries.codex2api.codex2apiAdminKey;
-      next.customPassword = openaiState.account.customPassword;
+      next.customPassword = normalizedState.services.account.customPassword;
       next.signupMethod = openaiState.signup.signupMethod;
       next.phoneVerificationEnabled = openaiState.signup.phoneVerificationEnabled;
       next.phoneSignupReloginAfterBindEmailEnabled = openaiState.signup.phoneSignupReloginAfterBindEmailEnabled;

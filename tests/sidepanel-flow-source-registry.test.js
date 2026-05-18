@@ -203,7 +203,7 @@ function updatePhoneVerificationSettingsUI() {
 }
 function resolveCurrentSidepanelCapabilities() {
   return {
-    visibleGroupIds: ['openai-account', 'openai-plus', 'openai-phone'],
+    visibleGroupIds: ['service-account', 'openai-plus', 'openai-phone'],
     effectivePanelMode: 'cpa',
     panelMode: 'cpa',
     effectiveSourceId: 'cpa',

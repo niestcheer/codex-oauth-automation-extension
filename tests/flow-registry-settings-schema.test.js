@@ -23,7 +23,7 @@ test('flow registry exposes openai and kiro with canonical source metadata', () 
   assert.equal(flowRegistry.normalizeSourceId('kiro', 'anything-else'), 'kiro-rs');
   assert.deepEqual(
     flowRegistry.getVisibleGroupIds('kiro', 'kiro-rs'),
-    ['kiro-runtime-status', 'kiro-source-kiro-rs', 'service-email', 'service-proxy']
+    ['kiro-runtime-status', 'kiro-source-kiro-rs', 'service-account', 'service-email', 'service-proxy']
   );
   assert.deepEqual(
     flowRegistry.getSettingsGroupDefinition('openai-plus')?.rowIds || [],
@@ -45,17 +45,19 @@ test('settings schema normalizes flat input into canonical flow and service name
     mailProvider: 'hotmail',
     ipProxyEnabled: true,
     ipProxyService: '711proxy',
+    customPassword: 'SharedSecret123!',
     kiroRsUrl: 'https://kiro.example.com/admin',
     kiroRsKey: 'secret-key',
     stepExecutionRangeByFlow: {
       openai: { enabled: true, fromStep: 2, toStep: 9 },
-      kiro: { enabled: true, fromStep: 1, toStep: 3 },
+      kiro: { enabled: true, fromStep: 1, toStep: 7 },
     },
   });
 
   assert.equal(normalized.activeFlowId, 'kiro');
   assert.equal(normalized.services.email.provider, 'hotmail');
   assert.equal(normalized.services.proxy.enabled, true);
+  assert.equal(normalized.services.account.customPassword, 'SharedSecret123!');
   assert.equal(normalized.flows.openai.source.selected, 'sub2api');
   assert.equal(normalized.flows.kiro.source.selected, 'kiro-rs');
   assert.equal(normalized.flows.kiro.source.entries['kiro-rs'].kiroRsUrl, 'https://kiro.example.com/admin');
@@ -63,7 +65,7 @@ test('settings schema normalizes flat input into canonical flow and service name
   assert.deepEqual(normalized.flows.kiro.autoRun.stepExecutionRange, {
     enabled: true,
     fromStep: 1,
-    toStep: 3,
+    toStep: 7,
   });
 });
 

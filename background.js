@@ -4368,29 +4368,32 @@ async function resetState() {
 }
 
 /**
- * Generate a random password: 14 chars, mix of uppercase, lowercase, digits, symbols.
+ * Generate a shared account password that satisfies the common policy:
+ * 8 to 64 chars, including uppercase, lowercase, digits, and symbols.
  */
 function generatePassword() {
+  const minLength = 8;
+  const maxLength = 64;
+  const targetLength = 14;
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghjkmnpqrstuvwxyz';
   const digits = '23456789';
-  const symbols = '!@#$%&*?';
-  const all = upper + lower + digits + symbols;
+  const symbols = '!@#$%^&*?_-+=';
+  const groups = [upper, lower, digits, symbols];
+  const all = groups.join('');
+  const length = Math.min(maxLength, Math.max(minLength, targetLength));
+  const passwordChars = groups.map((group) => group[Math.floor(Math.random() * group.length)]);
 
-  // Ensure at least one of each type
-  let pw = '';
-  pw += upper[Math.floor(Math.random() * upper.length)];
-  pw += lower[Math.floor(Math.random() * lower.length)];
-  pw += digits[Math.floor(Math.random() * digits.length)];
-  pw += symbols[Math.floor(Math.random() * symbols.length)];
-
-  // Fill remaining 10 chars
-  for (let i = 0; i < 10; i++) {
-    pw += all[Math.floor(Math.random() * all.length)];
+  while (passwordChars.length < length) {
+    passwordChars.push(all[Math.floor(Math.random() * all.length)]);
   }
 
-  // Shuffle
-  return pw.split('').sort(() => Math.random() - 0.5).join('');
+  for (let i = passwordChars.length - 1; i > 0; i -= 1) {
+    const swapIndex = Math.floor(Math.random() * (i + 1));
+    [passwordChars[i], passwordChars[swapIndex]] = [passwordChars[swapIndex], passwordChars[i]];
+  }
+
+  return passwordChars.join('');
 }
 
 function normalizePayPalAccount(account = {}) {
@@ -9067,6 +9070,7 @@ function getDownstreamStateResets(step, state = {}) {
       kiroCredentialId: null,
       kiroDeviceAuthorizationCode: '',
       kiroDeviceCode: '',
+      kiroFullName: '',
       kiroLastConnectionMessage: '',
       kiroLastUploadAt: 0,
       kiroLoginUrl: '',
@@ -9074,16 +9078,73 @@ function getDownstreamStateResets(step, state = {}) {
       kiroUploadError: '',
       kiroUploadStatus: '',
       kiroUserCode: '',
+      kiroVerificationRequestedAt: 0,
       kiroVerificationUri: '',
       kiroVerificationUriComplete: '',
     };
   }
-  if (stepKey === 'kiro-await-device-login') {
+  if (stepKey === 'kiro-submit-email') {
     return {
       kiroAccessToken: '',
       kiroAuthError: '',
       kiroAuthStatus: 'waiting_user',
       kiroAuthorizedEmail: '',
+      kiroCredentialId: null,
+      kiroFullName: '',
+      kiroLastConnectionMessage: '',
+      kiroLastUploadAt: 0,
+      kiroRefreshToken: '',
+      kiroUploadError: '',
+      kiroUploadStatus: 'waiting_login',
+      kiroVerificationRequestedAt: 0,
+    };
+  }
+  if (stepKey === 'kiro-submit-name') {
+    return {
+      kiroAccessToken: '',
+      kiroAuthError: '',
+      kiroAuthStatus: 'waiting_user',
+      kiroCredentialId: null,
+      kiroFullName: '',
+      kiroLastConnectionMessage: '',
+      kiroLastUploadAt: 0,
+      kiroRefreshToken: '',
+      kiroUploadError: '',
+      kiroUploadStatus: 'waiting_login',
+      kiroVerificationRequestedAt: 0,
+    };
+  }
+  if (stepKey === 'kiro-submit-verification-code') {
+    return {
+      kiroAccessToken: '',
+      kiroAuthError: '',
+      kiroAuthStatus: 'waiting_user',
+      kiroCredentialId: null,
+      kiroLastConnectionMessage: '',
+      kiroLastUploadAt: 0,
+      kiroRefreshToken: '',
+      kiroUploadError: '',
+      kiroUploadStatus: 'waiting_login',
+    };
+  }
+  if (stepKey === 'kiro-fill-password') {
+    return {
+      kiroAccessToken: '',
+      kiroAuthError: '',
+      kiroAuthStatus: 'waiting_user',
+      kiroCredentialId: null,
+      kiroLastConnectionMessage: '',
+      kiroLastUploadAt: 0,
+      kiroRefreshToken: '',
+      kiroUploadError: '',
+      kiroUploadStatus: 'waiting_login',
+    };
+  }
+  if (stepKey === 'kiro-confirm-access') {
+    return {
+      kiroAccessToken: '',
+      kiroAuthError: '',
+      kiroAuthStatus: 'waiting_user',
       kiroCredentialId: null,
       kiroLastConnectionMessage: '',
       kiroLastUploadAt: 0,
@@ -9094,7 +9155,6 @@ function getDownstreamStateResets(step, state = {}) {
   }
   if (stepKey === 'kiro-upload-credential') {
     return {
-      kiroAuthorizedEmail: '',
       kiroCredentialId: null,
       kiroLastConnectionMessage: '',
       kiroLastUploadAt: 0,
@@ -10283,6 +10343,7 @@ async function handleNodeData(nodeId, payload) {
       'kiroCredentialId',
       'kiroDeviceAuthorizationCode',
       'kiroDeviceCode',
+      'kiroFullName',
       'kiroLastConnectionMessage',
       'kiroLastUploadAt',
       'kiroLoginUrl',
@@ -10290,6 +10351,7 @@ async function handleNodeData(nodeId, payload) {
       'kiroUploadError',
       'kiroUploadStatus',
       'kiroUserCode',
+      'kiroVerificationRequestedAt',
       'kiroVerificationUri',
       'kiroVerificationUriComplete',
     ];
@@ -10347,7 +10409,11 @@ const AUTO_RUN_BACKGROUND_COMPLETED_STEP_KEYS = new Set([
   'post-bound-email-phone-verification',
   'confirm-oauth',
   'kiro-start-device-login',
-  'kiro-await-device-login',
+  'kiro-submit-email',
+  'kiro-submit-name',
+  'kiro-submit-verification-code',
+  'kiro-fill-password',
+  'kiro-confirm-access',
   'kiro-upload-credential',
 ]);
 const STEP_COMPLETION_SIGNAL_STEP_KEYS = new Set([
@@ -11027,7 +11093,9 @@ async function executeNode(nodeId, options = {}) {
       state = await getState();
 
       // Set flow start time on first step
-      const firstNodeIdForFlow = String(getNodeIdsForState(state)?.[0] || '').trim();
+      const firstNodeIdForFlow = typeof getNodeIdsForState === 'function'
+        ? String(getNodeIdsForState(state)?.[0] || '').trim()
+        : '';
       if (normalizedNodeId === firstNodeIdForFlow && !state.flowStartTime) {
         await setState({ flowStartTime: Date.now() });
       }
@@ -12395,14 +12463,16 @@ async function runAutoSequenceFromNodeGraph(startNodeId, context = {}) {
     setRestartNode(nodeId);
     return true;
   };
+  const defaultActiveFlowId = typeof DEFAULT_ACTIVE_FLOW_ID === 'string' ? DEFAULT_ACTIVE_FLOW_ID : 'openai';
+  const flowRegistry = typeof self !== 'undefined' ? self.MultiPageFlowRegistry : null;
   const initialFlowState = await getState();
-  const activeFlowId = String(initialFlowState?.activeFlowId || initialFlowState?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID;
+  const activeFlowId = String(initialFlowState?.activeFlowId || initialFlowState?.flowId || defaultActiveFlowId).trim().toLowerCase() || defaultActiveFlowId;
   const activeFlowLabel = String(
-    self.MultiPageFlowRegistry?.getFlowLabel?.(activeFlowId)
+    flowRegistry?.getFlowLabel?.(activeFlowId)
     || activeFlowId
   ).trim() || activeFlowId;
 
-  if (activeFlowId !== DEFAULT_ACTIVE_FLOW_ID) {
+  if (activeFlowId !== defaultActiveFlowId) {
     await broadcastAutoRunStatus('running', {
       currentRun: targetRun,
       totalRuns,
@@ -12835,6 +12905,7 @@ async function resumeAutoRun() {
 
 const SIGNUP_ENTRY_URL = 'https://chatgpt.com/';
 const SIGNUP_PAGE_INJECT_FILES = ['content/utils.js', 'content/operation-delay.js', 'content/auth-page-recovery.js', 'content/phone-country-utils.js', 'content/phone-auth.js', 'content/signup-page.js'];
+const KIRO_DEVICE_AUTH_INJECT_FILES = ['shared/source-registry.js', 'content/utils.js', 'content/kiro-device-auth-page.js'];
 const panelBridge = self.MultiPageBackgroundPanelBridge?.createPanelBridge({
   chrome,
   addLog,
@@ -13228,14 +13299,41 @@ const plusReturnConfirmExecutor = self.MultiPageBackgroundPlusReturnConfirm?.cre
 });
 const kiroDeviceAuthExecutor = self.MultiPageBackgroundKiroDeviceAuth?.createKiroDeviceAuthExecutor({
   addLog,
+  chrome,
+  ensureContentScriptReadyOnTab,
   completeNodeFromBackground,
+  ensureIcloudMailSession: ensureIcloudMailSessionForVerification,
+  ensureMail2925MailboxSession,
   fetchImpl: typeof fetch === 'function' ? fetch.bind(globalThis) : null,
+  generatePassword,
+  generateRandomName,
+  getMailConfig,
+  getTabId,
   getState,
+  HOTMAIL_PROVIDER,
+  isTabAlive,
+  LUCKMAIL_PROVIDER,
+  CLOUDFLARE_TEMP_EMAIL_PROVIDER,
+  CLOUD_MAIL_PROVIDER,
+  YYDS_MAIL_PROVIDER,
+  MAIL_2925_VERIFICATION_INTERVAL_MS,
+  MAIL_2925_VERIFICATION_MAX_ATTEMPTS,
+  pollCloudflareTempEmailVerificationCode,
+  pollCloudMailVerificationCode,
+  pollHotmailVerificationCode,
+  pollLuckmailVerificationCode,
+  pollYydsMailVerificationCode,
   registerTab,
+  resolveSignupEmailForFlow,
   reuseOrCreateTab,
+  sendToContentScriptResilient,
+  sendToMailContentScriptResilient,
+  setPasswordState,
   setState,
   sleepWithStop,
   throwIfStopped,
+  waitForTabStableComplete,
+  KIRO_DEVICE_AUTH_INJECT_FILES,
 });
 const step10Executor = self.MultiPageBackgroundStep10?.createStep10Executor({
   addLog,
@@ -13315,7 +13413,11 @@ const stepExecutorsByKey = {
   'confirm-oauth': (state) => step9Executor.executeStep9(state),
   'platform-verify': (state) => executeStep10(state),
   'kiro-start-device-login': (state) => kiroDeviceAuthExecutor.executeKiroStartDeviceLogin(state),
-  'kiro-await-device-login': (state) => kiroDeviceAuthExecutor.executeKiroAwaitDeviceLogin(state),
+  'kiro-submit-email': (state) => kiroDeviceAuthExecutor.executeKiroSubmitEmail(state),
+  'kiro-submit-name': (state) => kiroDeviceAuthExecutor.executeKiroSubmitName(state),
+  'kiro-submit-verification-code': (state) => kiroDeviceAuthExecutor.executeKiroSubmitVerificationCode(state),
+  'kiro-fill-password': (state) => kiroDeviceAuthExecutor.executeKiroFillPassword(state),
+  'kiro-confirm-access': (state) => kiroDeviceAuthExecutor.executeKiroConfirmAccess(state),
   'kiro-upload-credential': (state) => kiroDeviceAuthExecutor.executeKiroUploadCredential(state),
 };
 const messageRouter = self.MultiPageBackgroundMessageRouter?.createMessageRouter({

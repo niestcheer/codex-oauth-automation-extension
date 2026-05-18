@@ -168,21 +168,37 @@ test('step definitions module exposes ordered normal and Plus step metadata', ()
     kiroSteps.map((step) => step.key),
     [
       'kiro-start-device-login',
-      'kiro-await-device-login',
+      'kiro-submit-email',
+      'kiro-submit-name',
+      'kiro-submit-verification-code',
+      'kiro-fill-password',
+      'kiro-confirm-access',
       'kiro-upload-credential',
     ]
   );
   assert.equal(kiroSteps.every((step) => step.flowId === 'kiro'), true);
   assert.equal(kiroSteps[0].driverId, 'background/kiro-device-auth');
-  assert.equal(kiroSteps[2].sourceId, 'kiro-rs-admin');
+  assert.equal(kiroSteps[6].sourceId, 'kiro-rs-admin');
   assert.equal(kiroSteps[0].title, '启动设备登录');
-  assert.equal(kiroSteps[1].title, '等待设备登录确认');
-  assert.equal(kiroSteps[2].title, '上传凭据到 kiro.rs');
-  assert.deepStrictEqual(api.getStepIds({ activeFlowId: 'kiro' }), [1, 2, 3]);
-  assert.equal(api.getLastStepId({ activeFlowId: 'kiro' }), 3);
+  assert.equal(kiroSteps[1].title, '获取邮箱并继续');
+  assert.equal(kiroSteps[2].title, '填写姓名并继续');
+  assert.equal(kiroSteps[3].title, '获取验证码并继续');
+  assert.equal(kiroSteps[4].title, '设置密码并继续');
+  assert.equal(kiroSteps[5].title, '确认访问并授权');
+  assert.equal(kiroSteps[6].title, '上传凭据到 kiro.rs');
+  assert.deepStrictEqual(api.getStepIds({ activeFlowId: 'kiro' }), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(api.getLastStepId({ activeFlowId: 'kiro' }), 7);
   assert.deepStrictEqual(
     api.getNodes({ activeFlowId: 'kiro' }).map((node) => node.next),
-    [['kiro-await-device-login'], ['kiro-upload-credential'], []]
+    [
+      ['kiro-submit-email'],
+      ['kiro-submit-name'],
+      ['kiro-submit-verification-code'],
+      ['kiro-fill-password'],
+      ['kiro-confirm-access'],
+      ['kiro-upload-credential'],
+      [],
+    ]
   );
   assert.equal(plusSteps[5].title, '创建 Plus Checkout');
   assert.equal(plusSteps[7].title, 'PayPal 登录与授权');

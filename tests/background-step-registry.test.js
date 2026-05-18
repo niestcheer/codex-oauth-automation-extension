@@ -27,9 +27,13 @@ test('background imports node registry and shared workflow definitions', () => {
   assert.match(source, /background\/steps\/kiro-device-auth\.js/);
   assert.match(source, /const kiroDeviceAuthExecutor = self\.MultiPageBackgroundKiroDeviceAuth\?\.createKiroDeviceAuthExecutor\(/);
   assert.match(source, /'kiro-start-device-login': \(state\) => kiroDeviceAuthExecutor\.executeKiroStartDeviceLogin\(state\)/);
-  assert.match(source, /'kiro-await-device-login': \(state\) => kiroDeviceAuthExecutor\.executeKiroAwaitDeviceLogin\(state\)/);
+  assert.match(source, /'kiro-submit-email': \(state\) => kiroDeviceAuthExecutor\.executeKiroSubmitEmail\(state\)/);
+  assert.match(source, /'kiro-submit-name': \(state\) => kiroDeviceAuthExecutor\.executeKiroSubmitName\(state\)/);
+  assert.match(source, /'kiro-submit-verification-code': \(state\) => kiroDeviceAuthExecutor\.executeKiroSubmitVerificationCode\(state\)/);
+  assert.match(source, /'kiro-fill-password': \(state\) => kiroDeviceAuthExecutor\.executeKiroFillPassword\(state\)/);
+  assert.match(source, /'kiro-confirm-access': \(state\) => kiroDeviceAuthExecutor\.executeKiroConfirmAccess\(state\)/);
   assert.match(source, /'kiro-upload-credential': \(state\) => kiroDeviceAuthExecutor\.executeKiroUploadCredential\(state\)/);
-  assert.match(source, /'kiro-start-device-login',[\s\S]*'kiro-await-device-login',[\s\S]*'kiro-upload-credential'/);
+  assert.match(source, /'kiro-start-device-login',[\s\S]*'kiro-submit-email',[\s\S]*'kiro-submit-name',[\s\S]*'kiro-submit-verification-code',[\s\S]*'kiro-fill-password',[\s\S]*'kiro-confirm-access',[\s\S]*'kiro-upload-credential'/);
 });
 
 test('GoPay approve executor receives debugger click and manual OTP helpers', () => {
