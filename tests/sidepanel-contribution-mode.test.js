@@ -248,7 +248,6 @@ const inputTempEmailUseRandomSubdomain = { checked: true };
 const inputAutoSkipFailures = { checked: false };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '5' };
 const inputAutoStepDelaySeconds = { value: '10' };
-const inputOAuthFlowTimeoutEnabled = { checked: true };
 const inputVerificationResendCount = { value: '6' };
 const DEFAULT_VERIFICATION_RESEND_COUNT = 4;
 const PHONE_SMS_PROVIDER_HERO_SMS = 'hero-sms';

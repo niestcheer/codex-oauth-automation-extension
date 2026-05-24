@@ -29,6 +29,14 @@ test('flow registry exposes canonical flow and target metadata', () => {
     flowRegistry.getFlowDefinition('openai')?.targets?.cpa?.defaultState,
     { vpsUrl: '', vpsPassword: '', localCpaStep9Mode: 'submit' }
   );
+  assert.equal(
+    flowRegistry.getTargetCapabilities('openai', 'cpa')?.usesOauthTimeoutBudget,
+    true
+  );
+  assert.equal(
+    flowRegistry.getTargetCapabilities('openai', 'sub2api')?.usesOauthTimeoutBudget,
+    undefined
+  );
   assert.deepEqual(
     flowRegistry.getFlowDefinition('kiro')?.targets?.['kiro-rs']?.defaultState,
     { baseUrl: '', apiKey: '' }

@@ -204,7 +204,6 @@ const inputTempEmailUseRandomSubdomain = { checked: false };
 const inputAutoSkipFailures = { checked: false };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '0' };
 const inputAutoStepDelaySeconds = { value: '' };
-const inputOAuthFlowTimeoutEnabled = { checked: true };
 const inputVerificationResendCount = { value: '4' };
 const DEFAULT_VERIFICATION_RESEND_COUNT = 4;
 const PHONE_SMS_PROVIDER_HERO_SMS = 'hero-sms';

@@ -429,7 +429,6 @@ const inputAutoSkipFailures = document.getElementById('input-auto-skip-failures'
 const inputAutoSkipFailuresThreadIntervalMinutes = document.getElementById('input-auto-skip-failures-thread-interval-minutes');
 const inputStep6CookieCleanupEnabled = document.getElementById('input-step6-cookie-cleanup-enabled');
 const inputAutoStepDelaySeconds = document.getElementById('input-auto-step-delay-seconds');
-const inputOAuthFlowTimeoutEnabled = document.getElementById('input-oauth-flow-timeout-enabled');
 const rowStepExecutionRange = document.getElementById('row-step-execution-range');
 const inputStepExecutionRangeEnabled = document.getElementById('input-step-execution-range-enabled');
 const inputStepExecutionRangeFrom = document.getElementById('input-step-execution-range-from');
@@ -5119,9 +5118,6 @@ function collectSettingsPayload() {
       ? buildStepExecutionRangeByFlowPayload(latestState?.stepExecutionRangeByFlow)
       : (latestState?.stepExecutionRangeByFlow || {}),
     autoStepDelaySeconds: normalizeAutoStepDelaySeconds(inputAutoStepDelaySeconds.value),
-    oauthFlowTimeoutEnabled: typeof inputOAuthFlowTimeoutEnabled !== 'undefined' && inputOAuthFlowTimeoutEnabled
-      ? Boolean(inputOAuthFlowTimeoutEnabled.checked)
-      : true,
     phoneVerificationEnabled: effectivePhoneVerificationEnabled,
     signupMethod: effectiveSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: typeof inputPhoneSignupReloginAfterBindEmail !== 'undefined' && inputPhoneSignupReloginAfterBindEmail
@@ -11374,11 +11370,6 @@ function applySettingsState(state) {
     inputStep6CookieCleanupEnabled.checked = Boolean(state?.step6CookieCleanupEnabled);
   }
   inputAutoStepDelaySeconds.value = formatAutoStepDelayInputValue(state?.autoStepDelaySeconds);
-  if (typeof inputOAuthFlowTimeoutEnabled !== 'undefined' && inputOAuthFlowTimeoutEnabled) {
-    inputOAuthFlowTimeoutEnabled.checked = state?.oauthFlowTimeoutEnabled !== undefined
-      ? Boolean(state.oauthFlowTimeoutEnabled)
-      : true;
-  }
   if (inputVerificationResendCount) {
     const restoredVerificationResendCount = state?.verificationResendCount !== undefined
       ? state.verificationResendCount
@@ -17848,9 +17839,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
       if (message.payload.autoStepDelaySeconds !== undefined) {
         inputAutoStepDelaySeconds.value = formatAutoStepDelayInputValue(message.payload.autoStepDelaySeconds);
-      }
-      if (message.payload.oauthFlowTimeoutEnabled !== undefined && typeof inputOAuthFlowTimeoutEnabled !== 'undefined' && inputOAuthFlowTimeoutEnabled) {
-        inputOAuthFlowTimeoutEnabled.checked = Boolean(message.payload.oauthFlowTimeoutEnabled);
       }
       if (
         (

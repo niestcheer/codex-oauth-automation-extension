@@ -34,7 +34,6 @@
       "kiro-rs"
     ],
     "supportsLuckmail": false,
-    "supportsOauthTimeoutBudget": false,
     "canSwitchFlow": true,
     "stepDefinitionMode": "kiro",
     "targetSelectorLabel": "来源"

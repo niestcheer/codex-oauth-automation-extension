@@ -30,7 +30,6 @@
       contributionAdapterIds: [],
       supportedTargetIds: ['webchat2api'],
       supportsLuckmail: false,
-      supportsOauthTimeoutBudget: false,
       canSwitchFlow: true,
       stepDefinitionMode: 'grok',
       targetSelectorLabel: '来源',

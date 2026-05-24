@@ -27,6 +27,7 @@ test('flow capability registry keeps OpenAI phone signup available only when run
   assert.equal(enabledState.canUsePhoneSignup, true);
   assert.equal(enabledState.effectiveSignupMethod, 'phone');
   assert.equal(enabledState.shouldWarnCpaPhoneSignup, true);
+  assert.equal(enabledState.targetCapabilities.usesOauthTimeoutBudget, true);
   assert.deepEqual(enabledState.effectiveSignupMethods, ['email', 'phone']);
 
   const plusLockedState = registry.resolveSidepanelCapabilities({
@@ -43,6 +44,7 @@ test('flow capability registry keeps OpenAI phone signup available only when run
   assert.equal(plusLockedState.canUsePhoneSignup, false);
   assert.equal(plusLockedState.effectiveSignupMethod, 'email');
   assert.equal(plusLockedState.shouldWarnCpaPhoneSignup, false);
+  assert.equal(plusLockedState.targetCapabilities.usesOauthTimeoutBudget, false);
   assert.deepEqual(plusLockedState.effectiveSignupMethods, ['email']);
 });
 

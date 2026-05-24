@@ -1423,16 +1423,10 @@
             || (nextPlusModeEnabled && plusPaymentChanged)
             || (nextPlusModeEnabled && plusAccountAccessStrategyChanged)
             || phoneSignupReloginAfterBindEmailChanged;
-          const oauthFlowTimeoutDisabled = Object.prototype.hasOwnProperty.call(updates, 'oauthFlowTimeoutEnabled')
-            && updates.oauthFlowTimeoutEnabled === false;
           const canonicalSettingsUpdates = await setPersistentSettings(updates);
           const stateUpdates = {
             ...canonicalSettingsUpdates,
             ...sessionUpdates,
-            ...(oauthFlowTimeoutDisabled ? {
-              oauthFlowDeadlineAt: null,
-              oauthFlowDeadlineSourceUrl: null,
-            } : {}),
           };
           if (Object.prototype.hasOwnProperty.call(canonicalSettingsUpdates, 'activeFlowId')
             && !Object.prototype.hasOwnProperty.call(stateUpdates, 'flowId')) {

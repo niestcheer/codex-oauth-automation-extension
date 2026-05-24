@@ -2231,17 +2231,6 @@ header {
   text-align: center;
 }
 
-.oauth-flow-timeout-setting {
-  gap: 8px;
-  min-width: 0;
-}
-
-.oauth-flow-timeout-caption {
-  min-width: 0 !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .setting-caption-left {
   text-align: left;
 }

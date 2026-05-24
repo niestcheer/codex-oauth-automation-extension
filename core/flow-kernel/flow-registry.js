@@ -18,7 +18,6 @@
     contributionAdapterIds: [],
     supportedTargetIds: [],
     supportsLuckmail: false,
-    supportsOauthTimeoutBudget: false,
     canSwitchFlow: true,
     stepDefinitionMode: 'default',
     targetSelectorLabel: '\u6765\u6e90',

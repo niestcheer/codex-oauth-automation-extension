@@ -1350,7 +1350,6 @@ const PERSISTED_SETTING_DEFAULTS = {
   gopayHelperApiKeyStatus: '',
   autoRunSkipFailures: false,
   autoRunFallbackThreadIntervalMinutes: 0,
-  oauthFlowTimeoutEnabled: true,
   operationDelayEnabled: true,
   autoStepDelaySeconds: null,
   step6CookieCleanupEnabled: false,
@@ -3329,7 +3328,6 @@ function normalizePersistentSettingValue(key, value) {
     case 'gopayHelperRemainingUses':
       return Math.max(0, Number(value) || 0);
     case 'autoRunSkipFailures':
-    case 'oauthFlowTimeoutEnabled':
     case 'gopayHelperLocalSmsHelperEnabled':
     case 'gopayHelperAutoModeEnabled':
       return Boolean(value);
@@ -14441,15 +14439,46 @@ function normalizeOAuthFlowSourceUrl(value) {
   return normalized || null;
 }
 
+function resolveOAuthTimeoutBudgetScope(state = {}) {
+  const activeFlowId = self.MultiPageFlowRegistry?.normalizeFlowId
+    ? self.MultiPageFlowRegistry.normalizeFlowId(
+      state?.activeFlowId || state?.flowId,
+      DEFAULT_ACTIVE_FLOW_ID
+    )
+    : (String(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase()
+      || DEFAULT_ACTIVE_FLOW_ID);
+  const capabilityState = typeof resolveCurrentFlowCapabilities === 'function'
+    ? resolveCurrentFlowCapabilities(state, { activeFlowId })
+    : null;
+  const targetId = capabilityState?.effectiveTargetId || (self.MultiPageFlowRegistry?.normalizeTargetId
+    ? self.MultiPageFlowRegistry.normalizeTargetId(
+      activeFlowId,
+      state?.targetId,
+      self.MultiPageFlowRegistry.getDefaultTargetId?.(activeFlowId)
+    )
+    : String(state?.targetId || '').trim().toLowerCase());
+  const targetCapabilities = capabilityState?.targetCapabilities || (self.MultiPageFlowRegistry?.getTargetCapabilities
+    ? self.MultiPageFlowRegistry.getTargetCapabilities(activeFlowId, targetId)
+    : null);
+  return {
+    activeFlowId,
+    targetId,
+    enabled: activeFlowId === DEFAULT_ACTIVE_FLOW_ID && Boolean(targetCapabilities?.usesOauthTimeoutBudget),
+  };
+}
+
+function shouldUseOAuthTimeoutBudget(state = {}) {
+  return resolveOAuthTimeoutBudgetScope(state).enabled;
+}
+
 async function startOAuthFlowTimeoutWindow(options = {}) {
   const step = Number(options.step) || 7;
   const state = options.state || await getState();
-  if (state?.oauthFlowTimeoutEnabled === false) {
+  if (!shouldUseOAuthTimeoutBudget(state)) {
     await setState({
       oauthFlowDeadlineAt: null,
       oauthFlowDeadlineSourceUrl: null,
     });
-    await addLog(`步骤 ${step}：已拿到新的 OAuth 登录地址，授权后链总超时已关闭，仅保留各步骤本地等待超时。`, 'info');
     return null;
   }
 
@@ -14466,7 +14495,7 @@ async function getOAuthFlowRemainingMs(options = {}) {
   const step = Number(options.step) || 7;
   const actionLabel = String(options.actionLabel || '后续授权流程').trim() || '后续授权流程';
   const state = options.state || await getState();
-  if (state?.oauthFlowTimeoutEnabled === false) {
+  if (!shouldUseOAuthTimeoutBudget(state)) {
     return null;
   }
 

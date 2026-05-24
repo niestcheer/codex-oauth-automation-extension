@@ -38,7 +38,6 @@
       "codex2api"
     ],
     "supportsLuckmail": true,
-    "supportsOauthTimeoutBudget": true,
     "canSwitchFlow": true,
     "stepDefinitionMode": "openai-dynamic",
     "targetSelectorLabel": "来源"
@@ -427,7 +426,6 @@
       "id": "openai-oauth",
       "label": "OAuth",
       "rowIds": [
-        "row-oauth-flow-timeout",
         "row-oauth-display",
         "row-oauth-callback"
       ]
@@ -444,6 +442,7 @@
     "cpa": {
       "supportsPhoneSignup": true,
       "requiresPhoneSignupWarning": true,
+      "usesOauthTimeoutBudget": true,
       "supportedPlusAccountAccessStrategies": [
         "oauth",
         "cpa_codex_session"
