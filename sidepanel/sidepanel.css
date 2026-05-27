@@ -1378,6 +1378,10 @@ header {
 }
 .data-input::placeholder { color: var(--text-muted); }
 .data-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.data-input.is-invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
 
 .data-textarea {
   width: 100%;
@@ -1488,6 +1492,38 @@ header {
   border-color: var(--border);
   background: var(--bg-elevated);
   color: var(--text-muted);
+}
+
+.temp-email-subdomain-mode-wrap,
+.temp-email-subdomain-prefix-wrap {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.temp-email-subdomain-mode-wrap .choice-group,
+.temp-email-subdomain-prefix-wrap .data-input {
+  width: 100%;
+}
+
+.temp-email-subdomain-mode-wrap .setting-caption {
+  white-space: normal;
+  text-align: left;
+}
+
+.field-feedback {
+  min-height: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.field-feedback.is-error {
+  color: var(--red);
+}
+
+.field-feedback-muted {
+  color: var(--text-secondary);
 }
 
 #btn-fetch-email,

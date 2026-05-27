@@ -247,6 +247,13 @@ const inputTempEmailReceiveMailbox = { value: 'relay@example.com' };
 const inputTempEmailUseRandomSubdomain = { checked: true };
 const inputTempEmailUseFixedSubdomain = { checked: false };
 const inputTempEmailSubdomainPrefix = { value: '' };
+function getSelectedCloudflareTempEmailSubdomainMode() {
+  if (inputTempEmailUseFixedSubdomain.checked) return 'fixed';
+  if (inputTempEmailUseRandomSubdomain.checked) return 'random';
+  return 'none';
+}
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_RANDOM = 'random';
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_FIXED = 'fixed';
 const inputAutoSkipFailures = { checked: false };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '5' };
 const inputAutoStepDelaySeconds = { value: '10' };

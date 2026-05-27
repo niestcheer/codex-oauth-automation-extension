@@ -132,6 +132,13 @@ const inputTempEmailReceiveMailbox = { value: '' };
 const inputTempEmailUseRandomSubdomain = { checked: false };
 const inputTempEmailUseFixedSubdomain = { checked: false };
 const inputTempEmailSubdomainPrefix = { value: '' };
+function getSelectedCloudflareTempEmailSubdomainMode() {
+  if (inputTempEmailUseFixedSubdomain.checked) return 'fixed';
+  if (inputTempEmailUseRandomSubdomain.checked) return 'random';
+  return 'none';
+}
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_RANDOM = 'random';
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_FIXED = 'fixed';
 const inputAutoSkipFailures = { checked: false };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '0' };
 const inputAutoStepDelaySeconds = { value: '' };
@@ -275,10 +282,13 @@ const rowTempEmailBaseUrl = createRow();
 const rowTempEmailAdminAuth = createRow();
 const rowTempEmailCustomAuth = createRow();
 const rowTempEmailReceiveMailbox = createRow();
-const rowTempEmailRandomSubdomainToggle = createRow();
-const rowTempEmailFixedSubdomainToggle = createRow();
+const rowTempEmailLookupMode = createRow();
+const rowTempEmailSubdomainMode = createRow();
+const tempEmailSubdomainModeButtons = [];
+const tempEmailSubdomainModeCaption = { textContent: '' };
 const rowTempEmailFixedSubdomainPrefix = createRow();
 const rowTempEmailDomain = createRow();
+const labelTempEmailDomain = { textContent: '' };
 const cloudflareTempEmailSection = createRow();
 const hotmailSection = createRow();
 const mail2925Section = createRow();
@@ -300,16 +310,30 @@ const rowHotmailLocalBaseUrl = createRow();
 const inputMail2925UseAccountPool = { checked: false };
 const selectMailProvider = { value: 'icloud' };
 const selectEmailGenerator = { value: 'duck', disabled: false, options: [] };
+const selectTempEmailDomain = { value: '' };
 const selectIcloudTargetMailboxType = { value: 'icloud-inbox' };
 const selectIcloudForwardMailProvider = { value: 'gmail' };
 const selectIcloudHostPreference = { value: 'icloud.com.cn' };
 const inputTempEmailUseRandomSubdomain = { checked: false };
 const inputTempEmailUseFixedSubdomain = { checked: false };
-const inputTempEmailSubdomainPrefix = { value: '' };
+const inputTempEmailSubdomainPrefix = {
+  value: '',
+  classList: { toggle() {} },
+  setAttribute() {},
+};
+const tempEmailSubdomainPrefixFeedback = {
+  textContent: '',
+  classList: { toggle() {} },
+};
+const tempEmailEffectiveDomainPreview = { textContent: '' };
 const inputRunCount = { disabled: false };
 const currentAutoRun = { autoRunning: false };
 const MAIL_PROVIDER_LOGIN_CONFIGS = { gmail: { label: 'Gmail 邮箱' } };
 const ICLOUD_FORWARD_MAIL_PROVIDER_LABELS = { gmail: 'Gmail 邮箱' };
+const CLOUDFLARE_TEMP_EMAIL_LOOKUP_MODE_REGISTRATION_EMAIL = 'registration-email';
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_NONE = 'none';
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_RANDOM = 'random';
+const CLOUDFLARE_TEMP_EMAIL_SUBDOMAIN_MODE_FIXED = 'fixed';
 function normalizeIcloudHost(value) { return String(value || '').trim().toLowerCase(); }
 function normalizeIcloudTargetMailboxType(value) { return String(value || '').trim().toLowerCase() === 'forward-mailbox' ? 'forward-mailbox' : 'icloud-inbox'; }
 function normalizeIcloudForwardMailProvider(value) { return String(value || '').trim().toLowerCase() === 'gmail' ? 'gmail' : 'qq'; }
@@ -320,6 +344,27 @@ function isIcloudMailProvider() { return selectMailProvider.value === ICLOUD_PRO
 function usesCustomMailProviderPool() { return false; }
 function usesGeneratedAliasMailProvider() { return false; }
 function getSelectedMail2925Mode() { return 'provide'; }
+function getSelectedCloudflareTempEmailLookupMode() { return 'receive-mailbox'; }
+function syncCloudflareTempEmailSubdomainModeButtons() {}
+function getSelectedCloudflareTempEmailSubdomainMode() {
+  if (inputTempEmailUseFixedSubdomain.checked) return 'fixed';
+  if (inputTempEmailUseRandomSubdomain.checked) return 'random';
+  return 'none';
+}
+function normalizeCloudflareTempEmailDomainValue(value = '') { return String(value || '').trim().toLowerCase(); }
+function normalizeCloudflareTempEmailSubdomainPrefixValue(value = '') { return String(value || '').trim().toLowerCase(); }
+function getCloudflareTempEmailSubdomainPrefixValidation(value = '') {
+  const raw = String(value || '').trim();
+  return raw
+    ? { raw, normalized: raw.toLowerCase(), valid: true, message: '' }
+    : { raw, normalized: '', valid: false, message: '请填写子域前缀' };
+}
+function buildCloudflareTempEmailEffectiveDomainValue(domain = '', subdomainPrefix = '', options = {}) {
+  const normalizedDomain = normalizeCloudflareTempEmailDomainValue(domain);
+  const normalizedPrefix = normalizeCloudflareTempEmailSubdomainPrefixValue(subdomainPrefix);
+  if (options.requirePrefix && !normalizedPrefix) return '';
+  return normalizedPrefix && normalizedDomain ? \`\${normalizedPrefix}.\${normalizedDomain}\` : normalizedDomain;
+}
 function getManagedAliasProviderUiCopy() { return null; }
 function getCurrentRegistrationEmailUiCopy() { return { buttonLabel: '获取邮箱', placeholder: '邮箱', label: '邮箱' }; }
 function updateMailLoginButtonState() {}

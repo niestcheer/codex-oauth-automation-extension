@@ -812,41 +812,34 @@
         <input type="text" id="input-temp-email-receive-mailbox" class="data-input"
           placeholder="用于接收转发邮件的邮箱，例如 1@email.example.com" />
       </div>
-      <div class="data-row" id="row-temp-email-random-subdomain-toggle" style="display:none;">
-        <span class="data-label">随机子域</span>
-        <div class="data-inline">
-          <label class="toggle-switch" for="input-temp-email-use-random-subdomain"
-            title="依赖后端 RANDOM_SUBDOMAIN_DOMAINS 配置">
-            <input type="checkbox" id="input-temp-email-use-random-subdomain" />
-            <span class="toggle-switch-track" aria-hidden="true">
-              <span class="toggle-switch-thumb"></span>
-            </span>
-            <span>启用</span>
-          </label>
-          <span class="setting-caption">依赖后端 RANDOM_SUBDOMAIN_DOMAINS</span>
-        </div>
-      </div>
-      <div class="data-row" id="row-temp-email-fixed-subdomain-toggle" style="display:none;">
-        <span class="data-label">固定子域</span>
-        <div class="data-inline">
-          <label class="toggle-switch" for="input-temp-email-use-fixed-subdomain"
-            title="依赖后端 ENABLE_CREATE_ADDRESS_SUBDOMAIN_MATCH 配置">
-            <input type="checkbox" id="input-temp-email-use-fixed-subdomain" />
-            <span class="toggle-switch-track" aria-hidden="true">
-              <span class="toggle-switch-thumb"></span>
-            </span>
-            <span>启用</span>
-          </label>
-          <span class="setting-caption">与随机子域互斥</span>
+      <div class="data-row" id="row-temp-email-subdomain-mode" style="display:none;">
+        <span class="data-label">子域模式</span>
+        <div class="data-inline temp-email-subdomain-mode-wrap">
+          <input type="checkbox" id="input-temp-email-use-random-subdomain" hidden />
+          <input type="checkbox" id="input-temp-email-use-fixed-subdomain" hidden />
+          <div id="temp-email-subdomain-mode-group" class="choice-group" role="group"
+            aria-label="Cloudflare Temp Email 子域模式">
+            <button type="button" class="choice-btn" data-temp-email-subdomain-mode="none">不使用</button>
+            <button type="button" class="choice-btn" data-temp-email-subdomain-mode="random"
+              title="依赖后端 RANDOM_SUBDOMAIN_DOMAINS 配置">随机</button>
+            <button type="button" class="choice-btn" data-temp-email-subdomain-mode="fixed"
+              title="依赖后端 ENABLE_CREATE_ADDRESS_SUBDOMAIN_MATCH 配置">固定</button>
+          </div>
+          <span id="temp-email-subdomain-mode-caption" class="setting-caption setting-caption-left">按基础域名直接生成</span>
         </div>
       </div>
       <div class="data-row" id="row-temp-email-fixed-subdomain-prefix" style="display:none;">
         <span class="data-label">子域前缀</span>
-        <input type="text" id="input-temp-email-subdomain-prefix" class="data-input"
-          placeholder="例如 a；当前域名为 b.com 时生成 xxx@a.b.com" />
+        <div class="data-inline temp-email-subdomain-prefix-wrap">
+          <input type="text" id="input-temp-email-subdomain-prefix" class="data-input"
+            placeholder="例如 team；基础域名为 mail.example.com 时生成 xxx@team.mail.example.com"
+            aria-describedby="temp-email-subdomain-prefix-feedback temp-email-effective-domain-preview" />
+          <span id="temp-email-subdomain-prefix-feedback" class="field-feedback" aria-live="polite"></span>
+          <span id="temp-email-effective-domain-preview" class="field-feedback field-feedback-muted"></span>
+        </div>
       </div>
       <div class="data-row" id="row-temp-email-domain" style="display:none;">
-        <span class="data-label">Temp 域名</span>
+        <span class="data-label" id="label-temp-email-domain">Temp 域名</span>
         <div class="data-inline">
           <input type="hidden" id="select-temp-email-domain" value="" />
           <div id="temp-email-domain-picker" class="editable-list-picker">
