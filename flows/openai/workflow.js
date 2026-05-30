@@ -13,6 +13,8 @@
   const PLUS_ACCOUNT_ACCESS_STRATEGY_CPA_CODEX_SESSION = 'cpa_codex_session';
   const PLUS_PAYMENT_STEP_KEY = 'paypal-approve';
   const PLUS_REGISTRATION_WAIT_STEP_KEY = 'wait-registration-success';
+  const OPENAI_WEBCHAT_TARGET_ID = 'webchat';
+  const OPENAI_WEBCHAT_UPLOAD_STEP_KEY = 'openai-upload-session-to-webchat';
 
   function freezeDeep(entry) {
     if (!entry || typeof entry !== 'object' || Object.isFrozen(entry)) {
@@ -3048,6 +3050,17 @@
     }));
   }
 
+  function getOpenAiWebchatUploadStep() {
+    return {
+      key: OPENAI_WEBCHAT_UPLOAD_STEP_KEY,
+      title: '上传 ChatGPT 会话到 webchat',
+      sourceId: 'openai-webchat',
+      driverId: 'flows/openai/background/publisher-webchat',
+      command: OPENAI_WEBCHAT_UPLOAD_STEP_KEY,
+      flowId: 'openai',
+    };
+  }
+
   function getPlusRegistrationWaitStep() {
     const sourceStep = STEP_VARIANTS.normal.find((step) => step.key === PLUS_REGISTRATION_WAIT_STEP_KEY);
     return {
@@ -3129,6 +3142,16 @@
       return Boolean(options.phoneVerificationEnabled);
     }
     return true;
+  }
+
+  function isOpenAiWebchatUploadEnabled(options = {}) {
+    if (String(options?.targetId || '').trim().toLowerCase() === OPENAI_WEBCHAT_TARGET_ID) {
+      return true;
+    }
+    if (Object.prototype.hasOwnProperty.call(options || {}, 'openaiWebchatUploadEnabled')) {
+      return Boolean(options.openaiWebchatUploadEnabled);
+    }
+    return Boolean(options?.settingsState?.flows?.openai?.webchatUpload?.enabled);
   }
 
   function normalizePlusAccountAccessStrategy(value = '') {
@@ -3224,6 +3247,12 @@
     if (!isPhoneVerificationEnabled(options)) {
       steps = omitPostLoginPhoneVerificationSteps(steps);
     }
+    if (isOpenAiWebchatUploadEnabled(options) && !steps.some((step) => step.key === OPENAI_WEBCHAT_UPLOAD_STEP_KEY)) {
+      steps = [
+        ...steps,
+        getOpenAiWebchatUploadStep(),
+      ];
+    }
     return reindexModeStepDefinitions(steps);
   }
 
@@ -3237,6 +3266,13 @@
         keyed.set(`${step.id}:${step.key}`, step);
       });
     });
+    const uploadStep = reindexModeStepDefinitions([
+      ...STEP_VARIANTS.normal,
+      getOpenAiWebchatUploadStep(),
+    ]).at(-1);
+    if (uploadStep) {
+      keyed.set(`${uploadStep.id}:${uploadStep.key}`, uploadStep);
+    }
     return Array.from(keyed.values()).sort((left, right) => {
       const leftOrder = Number.isFinite(left.order) ? left.order : left.id;
       const rightOrder = Number.isFinite(right.order) ? right.order : right.id;

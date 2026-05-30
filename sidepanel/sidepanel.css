@@ -2312,6 +2312,10 @@ header {
   text-align: right;
 }
 
+.setting-caption.is-error {
+  color: var(--red);
+}
+
 .setting-controls {
   display: flex;
   align-items: center;

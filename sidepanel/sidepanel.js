@@ -188,6 +188,15 @@ const rowGrokWebchat2ApiUrl = document.getElementById('row-grok-webchat2api-url'
 const inputGrokWebchat2ApiUrl = document.getElementById('input-grok-webchat2api-url');
 const rowGrokWebchat2ApiKey = document.getElementById('row-grok-webchat2api-key');
 const inputGrokWebchat2ApiKey = document.getElementById('input-grok-webchat2api-key');
+const rowOpenAiWebchatUrl = document.getElementById('row-openai-webchat-url');
+const inputOpenAiWebchatUrl = document.getElementById('input-openai-webchat-url');
+const rowOpenAiWebchatKey = document.getElementById('row-openai-webchat-key');
+const inputOpenAiWebchatKey = document.getElementById('input-openai-webchat-key');
+const rowOpenAiWebchatUploadToggle = document.getElementById('row-openai-webchat-upload-toggle');
+const inputOpenAiWebchatUploadEnabled = document.getElementById('input-openai-webchat-upload-enabled');
+const displayOpenAiWebchatUploadHint = document.getElementById('display-openai-webchat-upload-hint');
+const rowOpenAiWebchatUploadStatus = document.getElementById('row-openai-webchat-upload-status');
+const displayOpenAiWebchatUploadStatus = document.getElementById('display-openai-webchat-upload-status');
 const rowKiroWebStatus = document.getElementById('row-kiro-web-status');
 const displayKiroWebStatus = document.getElementById('display-kiro-web-status');
 const rowKiroLoginUrl = document.getElementById('row-kiro-login-url');
@@ -609,6 +618,8 @@ let currentSignupMethod = DEFAULT_SIGNUP_METHOD;
 let currentPhoneVerificationEnabled = false;
 let currentPhoneSignupReloginAfterBindEmailEnabled = DEFAULT_PHONE_SIGNUP_RELOGIN_AFTER_BIND_EMAIL_ENABLED;
 let currentStepDefinitionFlowId = DEFAULT_ACTIVE_FLOW_ID;
+let currentStepDefinitionTargetId = '';
+let currentStepDefinitionOpenAiWebchatUploadEnabled = false;
 let phoneSignupReuseUiWasLocked = false;
 let kiroRsConnectionTestStatusText = '未测试';
 let lastPhoneSmsProviderBeforeChange = null;
@@ -1068,11 +1079,23 @@ function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
   const activeFlowId = typeof options === 'string'
     ? ((typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId)
     : (options.activeFlowId || (typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId);
+  const targetId = typeof options === 'string'
+    ? (typeof latestState !== 'undefined' ? latestState?.targetId : '')
+    : (options.targetId || (typeof latestState !== 'undefined' ? latestState?.targetId : ''));
+  const openaiWebchatUploadEnabled = typeof options === 'string'
+    ? Boolean(typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false)
+    : Boolean(options.openaiWebchatUploadEnabled ?? (typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false));
+  const settingsState = typeof options === 'string'
+    ? (typeof latestState !== 'undefined' ? latestState?.settingsState : undefined)
+    : (options.settingsState || (typeof latestState !== 'undefined' ? latestState?.settingsState : undefined));
   return (window.MultiPageStepDefinitions?.getSteps?.({
     activeFlowId: String(activeFlowId || '').trim().toLowerCase() || defaultFlowId,
+    targetId,
     plusModeEnabled,
     plusPaymentMethod: normalizePlusPaymentMethod(rawPaymentMethod),
     plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
+    openaiWebchatUploadEnabled,
+    settingsState,
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneVerificationEnabled,
     phoneSignupReloginAfterBindEmailEnabled,
@@ -1115,11 +1138,23 @@ function getWorkflowNodesForMode(plusModeEnabled = false, options = {}) {
   const activeFlowId = typeof options === 'string'
     ? ((typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId)
     : (options.activeFlowId || (typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId);
+  const targetId = typeof options === 'string'
+    ? (typeof latestState !== 'undefined' ? latestState?.targetId : '')
+    : (options.targetId || (typeof latestState !== 'undefined' ? latestState?.targetId : ''));
+  const openaiWebchatUploadEnabled = typeof options === 'string'
+    ? Boolean(typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false)
+    : Boolean(options.openaiWebchatUploadEnabled ?? (typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false));
+  const settingsState = typeof options === 'string'
+    ? (typeof latestState !== 'undefined' ? latestState?.settingsState : undefined)
+    : (options.settingsState || (typeof latestState !== 'undefined' ? latestState?.settingsState : undefined));
   const nodes = window.MultiPageStepDefinitions?.getNodes?.({
     activeFlowId: String(activeFlowId || '').trim().toLowerCase() || defaultFlowId,
+    targetId,
     plusModeEnabled,
     plusPaymentMethod: normalizePlusPaymentMethod(rawPaymentMethod),
     plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
+    openaiWebchatUploadEnabled,
+    settingsState,
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneVerificationEnabled,
     phoneSignupReloginAfterBindEmailEnabled,
@@ -1202,6 +1237,12 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
     options.accountContributionEnabled
     ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
   );
+  const targetId = options.targetId || (typeof latestState !== 'undefined' ? latestState?.targetId : '');
+  const openaiWebchatUploadEnabled = Boolean(
+    options.openaiWebchatUploadEnabled
+    ?? (typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false)
+  );
+  const settingsState = options.settingsState || (typeof latestState !== 'undefined' ? latestState?.settingsState : undefined);
   currentPlusPaymentMethod = normalizePlusPaymentMethod(rawPaymentMethod);
   currentPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy);
   currentSignupMethod = normalizeSignupMethod(rawSignupMethod);
@@ -1215,10 +1256,19 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
   if (typeof currentStepDefinitionFlowId !== 'undefined') {
     currentStepDefinitionFlowId = nextActiveFlowId;
   }
+  if (typeof currentStepDefinitionTargetId !== 'undefined') {
+    currentStepDefinitionTargetId = String(targetId || '').trim().toLowerCase();
+  }
+  if (typeof currentStepDefinitionOpenAiWebchatUploadEnabled !== 'undefined') {
+    currentStepDefinitionOpenAiWebchatUploadEnabled = Boolean(openaiWebchatUploadEnabled);
+  }
   stepDefinitions = getStepDefinitionsForMode(currentPlusModeEnabled, {
     activeFlowId: nextActiveFlowId,
+    targetId,
     plusPaymentMethod: currentPlusPaymentMethod,
     plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
+    openaiWebchatUploadEnabled,
+    settingsState,
     signupMethod: currentSignupMethod,
     phoneVerificationEnabled,
     phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
@@ -1227,8 +1277,11 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
   const nextWorkflowNodes = typeof getWorkflowNodesForMode === 'function'
     ? getWorkflowNodesForMode(currentPlusModeEnabled, {
       activeFlowId: nextActiveFlowId,
+      targetId,
       plusPaymentMethod: currentPlusPaymentMethod,
       plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
+      openaiWebchatUploadEnabled,
+      settingsState,
       signupMethod: currentSignupMethod,
       phoneVerificationEnabled,
       phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
@@ -1764,6 +1817,7 @@ const TARGET_REPOSITORY_URLS = Object.freeze({
   openai: Object.freeze({
     cpa: 'https://github.com/router-for-me/CLIProxyAPI',
     sub2api: 'https://github.com/Wei-Shaw/sub2api',
+    webchat: 'https://github.com/zqbxdev/webchat2api',
   }),
   kiro: Object.freeze({
     'kiro-rs': 'https://github.com/QLHazyCoder/kiro.rs',
@@ -1778,6 +1832,7 @@ const PRIVACY_MASKED_INPUT_IDS = Object.freeze([
   'input-sub2api-email',
   'input-sub2api-default-proxy',
   'input-codex2api-url',
+  'input-openai-webchat-url',
   'input-kiro-rs-url',
   'input-grok-webchat2api-url',
   'input-gopay-phone',
@@ -2920,6 +2975,8 @@ function getGrokRegisterStatusLabel(value = '') {
 function getGrokWebchat2ApiUploadStatusLabel(value = '') {
   const normalized = String(value || '').trim().toLowerCase();
   switch (normalized) {
+    case 'reading_session':
+      return '正在读取会话';
     case 'uploading':
       return '正在上传';
     case 'uploaded':
@@ -2928,6 +2985,70 @@ function getGrokWebchat2ApiUploadStatusLabel(value = '') {
       return '上传失败';
     default:
       return String(value || '').trim() || '未开始';
+  }
+}
+
+function getOpenAiWebchatUploadStatusLabel(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  switch (normalized) {
+    case 'uploading':
+      return '正在上传';
+    case 'uploaded':
+      return '已上传';
+    case 'error':
+      return '上传失败';
+    default:
+      return String(value || '').trim() || '未开始';
+  }
+}
+
+function isOpenAiWebchatConfigComplete(state = latestState) {
+  return Boolean(
+    String(state?.openaiWebchatUrl || '').trim()
+    && String(state?.openaiWebchatAdminKey || '').trim()
+  );
+}
+
+function renderOpenAiWebchatState(state = latestState) {
+  const activeFlowId = typeof normalizeFlowId === 'function'
+    ? normalizeFlowId(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID, DEFAULT_ACTIVE_FLOW_ID)
+    : (String(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID);
+  const targetId = typeof getSelectedTargetIdForState === 'function'
+    ? getSelectedTargetIdForState(state, activeFlowId)
+    : String(state?.targetId || '').trim().toLowerCase();
+  const isOpenAiFlow = activeFlowId === DEFAULT_ACTIVE_FLOW_ID;
+  const targetIsWebchat = isOpenAiFlow && targetId === 'webchat';
+  const configComplete = isOpenAiWebchatConfigComplete(state);
+  const uploadEnabled = targetIsWebchat ? true : Boolean(state?.openaiWebchatUploadEnabled);
+  const shouldDisableToggle = targetIsWebchat || !configComplete;
+  const uploadStatus = String(state?.openaiWebchatUploadStatus || '').trim();
+  const uploadMessage = String(state?.openaiWebchatUploadMessage || '').trim();
+  const uploadTargetUrl = String(state?.openaiWebchatTargetUrl || '').trim();
+  const uploadedAt = Number(state?.openaiWebchatUploadedAt) || 0;
+
+  if (rowOpenAiWebchatUploadToggle) {
+    rowOpenAiWebchatUploadToggle.style.display = (!isOpenAiFlow || targetIsWebchat) ? 'none' : '';
+  }
+  if (inputOpenAiWebchatUploadEnabled) {
+    inputOpenAiWebchatUploadEnabled.checked = uploadEnabled;
+    inputOpenAiWebchatUploadEnabled.disabled = shouldDisableToggle;
+  }
+  if (displayOpenAiWebchatUploadHint) {
+    displayOpenAiWebchatUploadHint.textContent = targetIsWebchat
+      ? 'webchat 来源默认同步。'
+      : (configComplete ? '开启后流程末尾追加同步。' : '请选择 webchat 来源并完成配置后再开启同步。');
+    displayOpenAiWebchatUploadHint.classList.toggle('is-error', !targetIsWebchat && !configComplete);
+  }
+  if (displayOpenAiWebchatUploadStatus) {
+    const statusLabel = getOpenAiWebchatUploadStatusLabel(uploadStatus);
+    displayOpenAiWebchatUploadStatus.textContent = `${statusLabel}${uploadMessage ? `：${uploadMessage}` : ''}${uploadedAt ? `，${new Date(uploadedAt).toLocaleString()}` : ''}`;
+    displayOpenAiWebchatUploadStatus.title = uploadTargetUrl || '';
+    const tone = uploadStatus === 'uploaded' ? 'ok' : (uploadStatus === 'uploading' ? 'running' : (uploadStatus === 'error' ? 'error' : ''));
+    if (tone) {
+      displayOpenAiWebchatUploadStatus.dataset.tone = tone;
+    } else {
+      delete displayOpenAiWebchatUploadStatus.dataset.tone;
+    }
   }
 }
 
@@ -4912,7 +5033,7 @@ function collectSettingsPayload() {
     ? normalizePanelMode
     : ((value = '') => {
       const normalized = String(value || '').trim().toLowerCase();
-      return normalized === 'sub2api' || normalized === 'codex2api' ? normalized : 'cpa';
+      return ['cpa', 'sub2api', 'codex2api', 'webchat'].includes(normalized) ? normalized : 'cpa';
     });
   const normalizeTargetIdForFlowSafe = typeof normalizeTargetIdForFlow === 'function'
     ? normalizeTargetIdForFlow
@@ -5086,6 +5207,24 @@ function collectSettingsPayload() {
   const currentGrokWebchat2ApiKeyValue = typeof inputGrokWebchat2ApiKey !== 'undefined' && inputGrokWebchat2ApiKey
     ? String(inputGrokWebchat2ApiKey.value ?? '').trim()
     : null;
+  const currentOpenAiWebchatUrlValue = typeof inputOpenAiWebchatUrl !== 'undefined' && inputOpenAiWebchatUrl
+    ? String(inputOpenAiWebchatUrl.value ?? '').trim()
+    : null;
+  const currentOpenAiWebchatKeyValue = typeof inputOpenAiWebchatKey !== 'undefined' && inputOpenAiWebchatKey
+    ? String(inputOpenAiWebchatKey.value ?? '').trim()
+    : null;
+  const openAiWebchatConfigComplete = Boolean(
+    (currentOpenAiWebchatUrlValue !== null ? currentOpenAiWebchatUrlValue : String(latestState?.openaiWebchatUrl || '').trim())
+    && (currentOpenAiWebchatKeyValue !== null ? currentOpenAiWebchatKeyValue : String(latestState?.openaiWebchatAdminKey || '').trim())
+  );
+  const openAiWebchatUploadEnabled = effectiveOpenAiTargetId === 'webchat'
+    ? false
+    : Boolean(
+      openAiWebchatConfigComplete
+      && (typeof inputOpenAiWebchatUploadEnabled !== 'undefined' && inputOpenAiWebchatUploadEnabled
+        ? inputOpenAiWebchatUploadEnabled.checked
+        : latestState?.openaiWebchatUploadEnabled)
+    );
   const normalizeHostedCheckoutDelaySecondsSafe = typeof normalizePlusHostedCheckoutOauthDelaySeconds === 'function'
     ? normalizePlusHostedCheckoutOauthDelaySeconds
     : ((value) => {
@@ -5110,6 +5249,13 @@ function collectSettingsPayload() {
     grokWebchat2ApiAdminKey: currentGrokWebchat2ApiKeyValue !== null
       ? currentGrokWebchat2ApiKeyValue
       : String(latestState?.grokWebchat2ApiAdminKey || '').trim(),
+    openaiWebchatUrl: currentOpenAiWebchatUrlValue !== null
+      ? currentOpenAiWebchatUrlValue
+      : String(latestState?.openaiWebchatUrl || '').trim(),
+    openaiWebchatAdminKey: currentOpenAiWebchatKeyValue !== null
+      ? currentOpenAiWebchatKeyValue
+      : String(latestState?.openaiWebchatAdminKey || '').trim(),
+    openaiWebchatUploadEnabled: openAiWebchatUploadEnabled,
     vpsUrl: inputVpsUrl.value.trim(),
     vpsPassword: inputVpsPassword.value,
     localCpaStep9Mode: getSelectedLocalCpaStep9Mode(),
@@ -9966,7 +10112,7 @@ function setElementReuseLockedState(element, locked, title = PHONE_SIGNUP_REUSE_
 
 function normalizePanelMode(value = '') {
   const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'sub2api' || normalized === 'codex2api') {
+  if (['cpa', 'sub2api', 'codex2api', 'webchat'].includes(normalized)) {
     return normalized;
   }
   return 'cpa';
@@ -10281,6 +10427,11 @@ function resolveStepDefinitionCapabilityState(state = latestState, options = {})
     phoneVerificationEnabled: capabilityState
       ? Boolean(capabilityState.runtimeLocks?.phoneVerificationEnabled)
       : Boolean(nextState?.phoneVerificationEnabled),
+    openaiWebchatUploadEnabled: Boolean(
+      capabilityState?.stepDefinitionOptions?.openaiWebchatUploadEnabled
+      || nextState?.openaiWebchatUploadEnabled
+      || nextState?.settingsState?.flows?.openai?.webchatUpload?.enabled
+    ),
   };
 }
 
@@ -11825,22 +11976,38 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
     options.accountContributionEnabled
       ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
   );
+  const nextTargetId = options.targetId || (typeof latestState !== 'undefined' ? latestState?.targetId : '');
+  const nextOpenaiWebchatUploadEnabled = Boolean(
+    options.openaiWebchatUploadEnabled
+      ?? (typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false)
+  );
+  const nextSettingsState = options.settingsState || (typeof latestState !== 'undefined' ? latestState?.settingsState : null);
   const nextPaymentMethod = normalizePlusPaymentMethod(rawPaymentMethod);
   const nextActiveFlowId = String(
     options.activeFlowId
     || (typeof latestState !== 'undefined' ? latestState?.activeFlowId : '')
     || defaultFlowId
   ).trim().toLowerCase() || defaultFlowId;
+  const normalizedNextTargetId = String(nextTargetId || '').trim().toLowerCase();
   const currentFlowId = typeof currentStepDefinitionFlowId !== 'undefined'
     ? currentStepDefinitionFlowId
     : defaultFlowId;
+  const currentTargetId = typeof currentStepDefinitionTargetId !== 'undefined'
+    ? String(currentStepDefinitionTargetId || '').trim().toLowerCase()
+    : '';
+  const currentOpenaiWebchatUploadEnabled = typeof currentStepDefinitionOpenAiWebchatUploadEnabled !== 'undefined'
+    ? Boolean(currentStepDefinitionOpenAiWebchatUploadEnabled)
+    : Boolean(typeof latestState !== 'undefined' ? latestState?.openaiWebchatUploadEnabled : false);
   const rootScope = typeof window !== 'undefined' ? window : globalThis;
   const currentPaymentStep = stepDefinitions.find((step) => step.key === 'paypal-approve');
   const nextPaymentTitle = rootScope.MultiPageStepDefinitions?.getPlusPaymentStepTitle?.({
     activeFlowId: nextActiveFlowId,
+    targetId: nextTargetId,
     plusModeEnabled: nextPlusModeEnabled,
     plusPaymentMethod: nextPaymentMethod,
     plusAccountAccessStrategy: nextPlusAccountAccessStrategy,
+    openaiWebchatUploadEnabled: nextOpenaiWebchatUploadEnabled,
+    settingsState: nextSettingsState,
     signupMethod: nextSignupMethod,
     phoneVerificationEnabled: nextPhoneVerificationEnabled,
     phoneSignupReloginAfterBindEmailEnabled: nextPhoneSignupReloginAfterBindEmailEnabled,
@@ -11854,7 +12021,9 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
     || nextPhoneVerificationEnabled !== currentPhoneVerificationEnabled
     || nextPhoneSignupReloginAfterBindEmailEnabled !== currentPhoneSignupReloginAfterBindEmailEnabled
     || nextAccountContributionEnabled !== Boolean(typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
+    || nextOpenaiWebchatUploadEnabled !== currentOpenaiWebchatUploadEnabled
     || nextActiveFlowId !== currentFlowId
+    || normalizedNextTargetId !== currentTargetId
     || paymentTitleChanged;
   if (!shouldRender) {
     return;
@@ -11862,8 +12031,11 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
 
   rebuildStepDefinitionState(nextPlusModeEnabled, {
     activeFlowId: nextActiveFlowId,
+    targetId: nextTargetId,
     plusPaymentMethod: nextPaymentMethod,
     plusAccountAccessStrategy: nextPlusAccountAccessStrategy,
+    openaiWebchatUploadEnabled: nextOpenaiWebchatUploadEnabled,
+    settingsState: nextSettingsState,
     signupMethod: nextSignupMethod,
     phoneVerificationEnabled: nextPhoneVerificationEnabled,
     phoneSignupReloginAfterBindEmailEnabled: nextPhoneSignupReloginAfterBindEmailEnabled,
@@ -11890,8 +12062,11 @@ function syncStepDefinitionsFromUiState(stateOverrides = {}) {
     };
   syncStepDefinitionsForMode(stepDefinitionState.plusModeEnabled, {
     activeFlowId: nextState?.activeFlowId || nextState?.flowId || DEFAULT_ACTIVE_FLOW_ID,
+    targetId: nextState?.targetId,
     plusPaymentMethod: getSelectedPlusPaymentMethod(nextState),
     plusAccountAccessStrategy: stepDefinitionState.plusAccountAccessStrategy,
+    openaiWebchatUploadEnabled: stepDefinitionState.openaiWebchatUploadEnabled,
+    settingsState: nextState?.settingsState,
     signupMethod: stepDefinitionState.signupMethod,
     phoneVerificationEnabled: Boolean(stepDefinitionState.phoneVerificationEnabled),
     phoneSignupReloginAfterBindEmailEnabled: Boolean(nextState?.phoneSignupReloginAfterBindEmailEnabled),
@@ -11916,8 +12091,12 @@ function applySettingsState(state) {
       };
     syncStepDefinitionsForMode(stepDefinitionState.plusModeEnabled, {
       activeFlowId: state?.activeFlowId || state?.flowId,
+      targetId: state?.targetId,
       plusPaymentMethod: state?.plusPaymentMethod,
       signupMethod: stepDefinitionState.signupMethod,
+      plusAccountAccessStrategy: stepDefinitionState.plusAccountAccessStrategy,
+      openaiWebchatUploadEnabled: stepDefinitionState.openaiWebchatUploadEnabled,
+      settingsState: state?.settingsState,
       phoneVerificationEnabled: Boolean(stepDefinitionState.phoneVerificationEnabled),
       phoneSignupReloginAfterBindEmailEnabled: Boolean(state?.phoneSignupReloginAfterBindEmailEnabled),
       accountContributionEnabled: Boolean(state?.accountContributionEnabled),
@@ -12074,6 +12253,15 @@ function applySettingsState(state) {
   }
   if (typeof inputGrokWebchat2ApiKey !== 'undefined' && inputGrokWebchat2ApiKey) {
     inputGrokWebchat2ApiKey.value = String(state?.grokWebchat2ApiAdminKey || '');
+  }
+  if (typeof inputOpenAiWebchatUrl !== 'undefined' && inputOpenAiWebchatUrl) {
+    inputOpenAiWebchatUrl.value = String(state?.openaiWebchatUrl || '').trim();
+  }
+  if (typeof inputOpenAiWebchatKey !== 'undefined' && inputOpenAiWebchatKey) {
+    inputOpenAiWebchatKey.value = String(state?.openaiWebchatAdminKey || '');
+  }
+  if (typeof renderOpenAiWebchatState === 'function') {
+    renderOpenAiWebchatState(state);
   }
   if (typeof displayKiroRsTestStatus !== 'undefined' && displayKiroRsTestStatus) {
     displayKiroRsTestStatus.textContent = kiroRsConnectionTestStatusText;
@@ -14548,6 +14736,9 @@ function updatePanelModeUI() {
   if (typeof updatePhoneVerificationSettingsUI === 'function') {
     updatePhoneVerificationSettingsUI();
   }
+  if (typeof renderOpenAiWebchatState === 'function') {
+    renderOpenAiWebchatState(latestState);
+  }
   const displayTargetId = normalizePanelMode(
     activeFlowId === DEFAULT_ACTIVE_FLOW_ID
       ? (capabilityState?.effectiveTargetId || targetId)
@@ -16784,6 +16975,44 @@ selectPlusAccountAccessStrategy?.addEventListener('change', () => {
   });
 });
 
+[inputOpenAiWebchatUrl, inputOpenAiWebchatKey].forEach((input) => {
+  input?.addEventListener('input', () => {
+    syncLatestState({
+      openaiWebchatUrl: inputOpenAiWebchatUrl ? String(inputOpenAiWebchatUrl.value || '').trim() : latestState?.openaiWebchatUrl,
+      openaiWebchatAdminKey: inputOpenAiWebchatKey ? String(inputOpenAiWebchatKey.value || '') : latestState?.openaiWebchatAdminKey,
+    });
+    if (!isOpenAiWebchatConfigComplete(latestState) && inputOpenAiWebchatUploadEnabled?.checked) {
+      inputOpenAiWebchatUploadEnabled.checked = false;
+      syncLatestState({ openaiWebchatUploadEnabled: false });
+    }
+    renderOpenAiWebchatState(latestState);
+    syncStepDefinitionsFromUiState(latestState);
+    markSettingsDirty(true);
+    scheduleSettingsAutoSave();
+  });
+  input?.addEventListener('blur', () => {
+    saveSettings({ silent: true }).catch(() => { });
+  });
+});
+
+inputOpenAiWebchatUploadEnabled?.addEventListener('change', () => {
+  if (!isOpenAiWebchatConfigComplete(latestState)) {
+    inputOpenAiWebchatUploadEnabled.checked = false;
+    syncLatestState({ openaiWebchatUploadEnabled: false });
+    renderOpenAiWebchatState(latestState);
+    showToast('请选择 webchat 来源并完成配置后再开启同步。', 'warn', 2200);
+    return;
+  }
+  const enabled = Boolean(inputOpenAiWebchatUploadEnabled.checked);
+  syncLatestState({ openaiWebchatUploadEnabled: enabled });
+  renderOpenAiWebchatState(latestState);
+  syncStepDefinitionsFromUiState({ openaiWebchatUploadEnabled: enabled });
+  renderStepStatuses(latestState);
+  updateButtonStates();
+  markSettingsDirty(true);
+  saveSettings({ silent: true }).catch(() => { });
+});
+
 function syncCurrentIpProxyServiceProfileToLatestState() {
   const selectedService = normalizeIpProxyService(
     selectIpProxyService?.value || latestState?.ipProxyService || DEFAULT_IP_PROXY_SERVICE
@@ -18779,6 +19008,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           );
         }
         updatePanelModeUI();
+      }
+      if (
+        message.payload.openaiWebchatUrl !== undefined
+        || message.payload.openaiWebchatAdminKey !== undefined
+        || message.payload.openaiWebchatUploadEnabled !== undefined
+        || message.payload.openaiWebchatUploadStatus !== undefined
+        || message.payload.openaiWebchatUploadedAt !== undefined
+        || message.payload.openaiWebchatUploadMessage !== undefined
+        || message.payload.openaiWebchatTargetUrl !== undefined
+      ) {
+        if (message.payload.openaiWebchatUrl !== undefined && inputOpenAiWebchatUrl) {
+          inputOpenAiWebchatUrl.value = String(message.payload.openaiWebchatUrl || '').trim();
+        }
+        if (message.payload.openaiWebchatAdminKey !== undefined && inputOpenAiWebchatKey) {
+          inputOpenAiWebchatKey.value = String(message.payload.openaiWebchatAdminKey || '');
+        }
+        renderOpenAiWebchatState(latestState);
+        syncStepDefinitionsFromUiState(latestState);
       }
       if (
         message.payload.sub2apiGroupName !== undefined

@@ -225,6 +225,39 @@
             title="显示 Codex2API 管理密钥"></button>
         </div>
       </div>
+      <div class="data-row" id="row-openai-webchat-url" style="display:none;">
+        <span class="data-label">webchat</span>
+        <input type="text" id="input-openai-webchat-url" class="data-input"
+          placeholder="请输入 webchat 地址，例如 http://localhost:83" />
+      </div>
+      <div class="data-row" id="row-openai-webchat-key" style="display:none;">
+        <span class="data-label">管理密钥</span>
+        <div class="input-with-icon">
+          <input type="password" id="input-openai-webchat-key" class="data-input data-input-with-icon"
+            placeholder="请输入 webchat Admin Key" />
+          <button id="btn-toggle-openai-webchat-key" class="input-icon-btn" type="button"
+            data-password-toggle="input-openai-webchat-key" data-show-label="显示 webchat Admin Key"
+            data-hide-label="隐藏 webchat Admin Key" aria-label="显示 webchat Admin Key"
+            title="显示 webchat Admin Key"></button>
+        </div>
+      </div>
+      <div class="data-row" id="row-openai-webchat-upload-toggle" style="display:none;">
+        <span class="data-label">同步</span>
+        <div class="data-inline setting-pair openai-webchat-upload-setting">
+          <label class="toggle-switch" for="input-openai-webchat-upload-enabled" title="开启后，OpenAI 流程末尾同步当前 ChatGPT 会话到 webchat">
+            <input type="checkbox" id="input-openai-webchat-upload-enabled" />
+            <span class="toggle-switch-track" aria-hidden="true">
+              <span class="toggle-switch-thumb"></span>
+            </span>
+            <span>同步到 webchat</span>
+          </label>
+          <span id="display-openai-webchat-upload-hint" class="setting-caption">请选择 webchat 来源并完成配置后再开启同步。</span>
+        </div>
+      </div>
+      <div class="data-row" id="row-openai-webchat-upload-status" style="display:none;">
+        <span class="data-label">上传状态</span>
+        <span id="display-openai-webchat-upload-status" class="data-value mono truncate">未开始</span>
+      </div>
       <div class="data-row" id="row-kiro-rs-url" style="display:none;">
         <span class="data-label">kiro.rs</span>
         <input type="text" id="input-kiro-rs-url" class="data-input"

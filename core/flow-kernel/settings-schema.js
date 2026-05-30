@@ -255,6 +255,13 @@
           codex2apiAdminKey: String(targetState.codex2apiAdminKey ?? '').trim(),
         };
       }
+      if (flowId === 'openai' && targetId === 'webchat') {
+        return {
+          ...targetState,
+          baseUrl: String(targetState.baseUrl ?? '').trim(),
+          apiKey: String(targetState.apiKey ?? '').trim(),
+        };
+      }
       if (flowId === 'kiro' && targetId === 'kiro-rs') {
         return {
           ...targetState,
@@ -343,6 +350,9 @@
       const defaultOpenAiPlus = isPlainObject(defaultOpenAiFlow.plus)
         ? defaultOpenAiFlow.plus
         : {};
+      const defaultOpenAiWebchatUpload = isPlainObject(defaultOpenAiFlow.webchatUpload)
+        ? defaultOpenAiFlow.webchatUpload
+        : {};
       const cpaSource = {
         ...currentFlow.targets.cpa,
         ...getTargetValue(
@@ -382,6 +392,17 @@
         codex2apiUrl: input?.codex2apiUrl ?? currentFlow.targets.codex2api.codex2apiUrl,
         codex2apiAdminKey: input?.codex2apiAdminKey ?? currentFlow.targets.codex2api.codex2apiAdminKey,
       };
+      const webchatSource = {
+        ...currentFlow.targets.webchat,
+        ...getTargetValue(
+          nested,
+          (state) => state.flows?.openai?.integrationTargets?.webchat,
+          null,
+          {}
+        ),
+        baseUrl: input?.openaiWebchatUrl ?? currentFlow.targets.webchat?.baseUrl,
+        apiKey: input?.openaiWebchatAdminKey ?? currentFlow.targets.webchat?.apiKey,
+      };
       return {
         ...currentFlow,
         targets: {
@@ -389,6 +410,7 @@
           cpa: normalizeFlowTargetState('openai', 'cpa', cpaSource, defaultOpenAiTargets.cpa || {}),
           sub2api: normalizeFlowTargetState('openai', 'sub2api', sub2apiSource, defaultOpenAiTargets.sub2api || {}),
           codex2api: normalizeFlowTargetState('openai', 'codex2api', codex2apiSource, defaultOpenAiTargets.codex2api || {}),
+          webchat: normalizeFlowTargetState('openai', 'webchat', webchatSource, defaultOpenAiTargets.webchat || {}),
         },
         signup: {
           signupMethod: String(
@@ -451,6 +473,14 @@
             const fallback = Number(defaultOpenAiPlus.plusHostedCheckoutOauthDelaySeconds ?? 3) || 3;
             return Math.min(120, Math.max(0, Math.floor(Number.isFinite(numeric) ? numeric : fallback)));
           })(),
+        },
+        webchatUpload: {
+          enabled: Boolean(
+            input?.openaiWebchatUploadEnabled
+            ?? currentFlow.webchatUpload?.enabled
+            ?? defaultOpenAiWebchatUpload.enabled
+            ?? false
+          ),
         },
       };
     }
@@ -628,6 +658,9 @@
       next.sub2apiDefaultProxyName = openaiState.targets.sub2api?.sub2apiDefaultProxyName || '';
       next.codex2apiUrl = openaiState.targets.codex2api?.codex2apiUrl || '';
       next.codex2apiAdminKey = openaiState.targets.codex2api?.codex2apiAdminKey || '';
+      next.openaiWebchatUrl = openaiState.targets.webchat?.baseUrl || '';
+      next.openaiWebchatAdminKey = openaiState.targets.webchat?.apiKey || '';
+      next.openaiWebchatUploadEnabled = Boolean(openaiState.webchatUpload?.enabled);
       next.customPassword = normalizedState.services.account.customPassword;
       next.signupMethod = openaiState.signup?.signupMethod || 'email';
       next.phoneVerificationEnabled = Boolean(openaiState.signup?.phoneVerificationEnabled);

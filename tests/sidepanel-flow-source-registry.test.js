@@ -57,6 +57,15 @@ test('sidepanel html exposes flow selector and kiro source fields', () => {
     'id="row-grok-sso-settings"',
     'id="btn-copy-grok-sso"',
     'id="btn-clear-grok-sso"',
+    'id="row-openai-webchat-url"',
+    'id="input-openai-webchat-url"',
+    'id="row-openai-webchat-key"',
+    'id="input-openai-webchat-key"',
+    'id="row-openai-webchat-upload-toggle"',
+    'id="input-openai-webchat-upload-enabled"',
+    'id="display-openai-webchat-upload-hint"',
+    'id="row-openai-webchat-upload-status"',
+    'id="display-openai-webchat-upload-status"',
     '<script src="../flows/grok/index.js"></script>',
     '<script src="../flows/grok/workflow.js"></script>',
   ].forEach((snippet) => {
@@ -155,6 +164,7 @@ return {
 test('sidepanel project repository button resolves the configured target repositories', () => {
   assert.match(sidepanelSource, /cpa:\s*'https:\/\/github\.com\/router-for-me\/CLIProxyAPI'/);
   assert.match(sidepanelSource, /sub2api:\s*'https:\/\/github\.com\/Wei-Shaw\/sub2api'/);
+  assert.match(sidepanelSource, /webchat:\s*'https:\/\/github\.com\/zqbxdev\/webchat2api'/);
   assert.match(sidepanelSource, /'kiro-rs':\s*'https:\/\/github\.com\/QLHazyCoder\/kiro\.rs'/);
   assert.match(sidepanelSource, /webchat2api:\s*'https:\/\/github\.com\/zqbxdev\/webchat2api'/);
   assert.doesNotMatch(sidepanelSource, /github\.com\/hank9999\/kiro\.rs/);
@@ -171,6 +181,7 @@ const TARGET_REPOSITORY_URLS = Object.freeze({
   openai: Object.freeze({
     cpa: 'https://github.com/router-for-me/CLIProxyAPI',
     sub2api: 'https://github.com/Wei-Shaw/sub2api',
+    webchat: 'https://github.com/zqbxdev/webchat2api',
   }),
   kiro: Object.freeze({
     'kiro-rs': 'https://github.com/QLHazyCoder/kiro.rs',
@@ -187,7 +198,7 @@ function getDefaultTargetIdForFlow(flowId) {
 }
 function normalizeTargetIdForFlow(flowId, targetId, fallback) {
   const targets = {
-    openai: ['cpa', 'sub2api', 'codex2api'],
+    openai: ['cpa', 'sub2api', 'codex2api', 'webchat'],
     kiro: ['kiro-rs'],
     grok: ['webchat2api'],
   }[flowId] || [];
@@ -201,6 +212,7 @@ return { getTargetRepositoryUrl };
 
   assert.equal(api.getTargetRepositoryUrl('openai', 'cpa'), 'https://github.com/router-for-me/CLIProxyAPI');
   assert.equal(api.getTargetRepositoryUrl('openai', 'sub2api'), 'https://github.com/Wei-Shaw/sub2api');
+  assert.equal(api.getTargetRepositoryUrl('openai', 'webchat'), 'https://github.com/zqbxdev/webchat2api');
   assert.equal(api.getTargetRepositoryUrl('grok', 'webchat2api'), 'https://github.com/zqbxdev/webchat2api');
   assert.equal(api.getTargetRepositoryUrl('openai', 'codex2api'), '');
 });
@@ -232,6 +244,8 @@ let currentSignupMethod = 'email';
 let currentPhoneVerificationEnabled = false;
 let currentPhoneSignupReloginAfterBindEmailEnabled = false;
 let currentStepDefinitionFlowId = 'openai';
+let currentStepDefinitionTargetId = 'cpa';
+let currentStepDefinitionOpenAiWebchatUploadEnabled = false;
 const DEFAULT_ACTIVE_FLOW_ID = 'openai';
 const DEFAULT_SIGNUP_METHOD = 'email';
 const DEFAULT_PLUS_PAYMENT_METHOD = 'paypal';
@@ -268,9 +282,12 @@ return {
     type: 'getSteps',
     options: {
       activeFlowId: 'kiro',
+      targetId: undefined,
       plusModeEnabled: false,
       plusPaymentMethod: 'paypal',
       plusAccountAccessStrategy: 'oauth',
+      openaiWebchatUploadEnabled: false,
+      settingsState: undefined,
       signupMethod: 'email',
       phoneVerificationEnabled: false,
       phoneSignupReloginAfterBindEmailEnabled: false,
@@ -278,6 +295,111 @@ return {
     },
   });
   assert.deepEqual(api.calls[1], { type: 'render', stepIds: [88] });
+});
+
+test('sidepanel step definitions rerender when OpenAI target changes to webchat', () => {
+  const bundle = [
+    extractFunction(sidepanelSource, 'normalizeSignupMethod'),
+    extractFunction(sidepanelSource, 'normalizePlusPaymentMethod'),
+    extractFunction(sidepanelSource, 'getStepDefinitionsForMode'),
+    extractFunction(sidepanelSource, 'rebuildStepDefinitionState'),
+    extractFunction(sidepanelSource, 'syncStepDefinitionsForMode'),
+  ].join('\n');
+
+  const api = new Function(`
+const calls = [];
+const window = {
+  MultiPageStepDefinitions: {
+    getSteps(options) {
+      calls.push({ type: 'getSteps', options });
+      return options.targetId === 'webchat'
+        ? [{ id: 12, order: 12, key: 'openai-upload-session-to-webchat' }]
+        : [{ id: 6, order: 6, key: 'platform-verify' }];
+    },
+  },
+};
+let latestState = { activeFlowId: 'openai', targetId: 'cpa' };
+let currentPlusModeEnabled = false;
+let currentPlusPaymentMethod = 'paypal';
+let currentPlusAccountAccessStrategy = 'oauth';
+let currentSignupMethod = 'email';
+let currentPhoneVerificationEnabled = false;
+let currentPhoneSignupReloginAfterBindEmailEnabled = false;
+let currentStepDefinitionFlowId = 'openai';
+let currentStepDefinitionTargetId = 'cpa';
+let currentStepDefinitionOpenAiWebchatUploadEnabled = false;
+const DEFAULT_ACTIVE_FLOW_ID = 'openai';
+const DEFAULT_SIGNUP_METHOD = 'email';
+const DEFAULT_PLUS_PAYMENT_METHOD = 'paypal';
+const DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY = 'oauth';
+let stepDefinitions = [{ id: 6, key: 'platform-verify' }];
+let STEP_IDS = [6];
+let STEP_DEFAULT_STATUSES = { 6: 'pending' };
+let SKIPPABLE_STEPS = new Set([6]);
+function renderStepsList() {
+  calls.push({ type: 'render', stepIds: [...STEP_IDS] });
+}
+function normalizePlusAccountAccessStrategy(value = '') {
+  return String(value || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY).trim().toLowerCase() || DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY;
+}
+${bundle}
+return {
+  calls,
+  syncStepDefinitionsForMode,
+  getStepIds: () => [...STEP_IDS],
+  getCurrentTargetId: () => currentStepDefinitionTargetId,
+};
+`)();
+
+  api.syncStepDefinitionsForMode(false, {
+    activeFlowId: 'openai',
+    targetId: 'webchat',
+    plusPaymentMethod: 'paypal',
+    openaiWebchatUploadEnabled: true,
+    signupMethod: 'email',
+    phoneSignupReloginAfterBindEmailEnabled: false,
+  });
+
+  assert.equal(api.getCurrentTargetId(), 'webchat');
+  assert.deepEqual(api.getStepIds(), [12]);
+  assert.equal(api.calls.at(-1).type, 'render');
+  assert.equal(api.calls.at(-2).options.targetId, 'webchat');
+  assert.equal(api.calls.at(-2).options.openaiWebchatUploadEnabled, true);
+});
+
+test('sidepanel OpenAI target normalization keeps registry-backed webchat source', () => {
+  const bundle = [
+    extractFunction(sidepanelSource, 'normalizePanelMode'),
+    extractFunction(sidepanelSource, 'normalizeTargetIdForFlow'),
+  ].join('\n');
+
+  const api = new Function(`
+const DEFAULT_ACTIVE_FLOW_ID = 'openai';
+function getDefaultTargetIdForFlow(flowId = DEFAULT_ACTIVE_FLOW_ID) {
+  return flowId === 'openai' ? 'cpa' : 'kiro-rs';
+}
+function normalizeFlowId(value = '', fallback = DEFAULT_ACTIVE_FLOW_ID) {
+  const normalized = String(value || fallback || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase();
+  return ['openai', 'kiro', 'grok'].includes(normalized) ? normalized : DEFAULT_ACTIVE_FLOW_ID;
+}
+function getFlowRegistry() {
+  return {
+    normalizeTargetId(flowId, targetId = '', fallback = '') {
+      const normalizedFlowId = normalizeFlowId(flowId);
+      const normalizedTargetId = String(targetId || '').trim().toLowerCase();
+      if (normalizedFlowId === 'openai' && ['cpa', 'sub2api', 'codex2api', 'webchat'].includes(normalizedTargetId)) {
+        return normalizedTargetId;
+      }
+      return String(fallback || '').trim().toLowerCase() || 'cpa';
+    },
+  };
+}
+${bundle}
+return { normalizePanelMode, normalizeTargetIdForFlow };
+`)();
+
+  assert.equal(api.normalizePanelMode('webchat'), 'webchat');
+  assert.equal(api.normalizeTargetIdForFlow('openai', 'webchat'), 'webchat');
 });
 
 test('syncLatestState keeps activeFlowId and flowId in sync when only one side changes', () => {

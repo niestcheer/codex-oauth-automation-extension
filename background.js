@@ -47,6 +47,8 @@ importScripts(
   'flows/kiro/background/desktop-authorize-runner.js',
   'flows/kiro/background/publisher-kiro-rs.js',
   'flows/grok/background/publisher-webchat2api.js',
+  'flows/openai/background/session-reader.js',
+  'flows/openai/background/publisher-webchat.js',
   'background/email-local-part-helpers.js',
   'background/generated-email-helpers.js',
   'background/signup-flow-helpers.js',
@@ -1295,6 +1297,13 @@ const PERSISTED_SETTING_DEFAULTS = {
   kiroRsKey: '',
   grokWebchat2ApiUrl: '',
   grokWebchat2ApiAdminKey: '',
+  openaiWebchatUrl: '',
+  openaiWebchatAdminKey: '',
+  openaiWebchatUploadEnabled: false,
+  openaiWebchatUploadStatus: '',
+  openaiWebchatUploadedAt: 0,
+  openaiWebchatUploadMessage: '',
+  openaiWebchatTargetUrl: '',
   vpsUrl: '',
   vpsPassword: '',
   localCpaStep9Mode: DEFAULT_LOCAL_CPA_STEP9_MODE,
@@ -1498,6 +1507,9 @@ const SETTINGS_SCHEMA_VIEW_KEYS = Object.freeze([
   'kiroRsKey',
   'grokWebchat2ApiUrl',
   'grokWebchat2ApiAdminKey',
+  'openaiWebchatUrl',
+  'openaiWebchatAdminKey',
+  'openaiWebchatUploadEnabled',
   'stepExecutionRangeByFlow',
 ]);
 const SETTINGS_SCHEMA_VIEW_KEY_SET = new Set(SETTINGS_SCHEMA_VIEW_KEYS);
@@ -3239,10 +3251,20 @@ function normalizePersistentSettingValue(key, value) {
       return String(value || '').trim().toLowerCase() === 'kiro' ? 'kiro' : DEFAULT_ACTIVE_FLOW_ID;
     case 'kiroRsUrl':
     case 'grokWebchat2ApiUrl':
+    case 'openaiWebchatUrl':
       return String(value || '').trim();
     case 'kiroRsKey':
     case 'grokWebchat2ApiAdminKey':
+    case 'openaiWebchatAdminKey':
       return String(value || '').trim();
+    case 'openaiWebchatUploadEnabled':
+      return Boolean(value);
+    case 'openaiWebchatUploadStatus':
+    case 'openaiWebchatUploadMessage':
+    case 'openaiWebchatTargetUrl':
+      return String(value || '').trim();
+    case 'openaiWebchatUploadedAt':
+      return Math.max(0, Number(value) || 0);
     case 'vpsUrl':
       return String(value || '').trim();
     case 'vpsPassword':
@@ -3893,6 +3915,9 @@ function buildSettingsStatePatchFromFlatUpdates(updates = {}) {
   assignIfUpdated('kiroRsKey', ['flows', 'kiro', 'targets', 'kiro-rs', 'apiKey']);
   assignIfUpdated('grokWebchat2ApiUrl', ['flows', 'grok', 'targets', 'webchat2api', 'baseUrl']);
   assignIfUpdated('grokWebchat2ApiAdminKey', ['flows', 'grok', 'targets', 'webchat2api', 'apiKey']);
+  assignIfUpdated('openaiWebchatUrl', ['flows', 'openai', 'targets', 'webchat', 'baseUrl']);
+  assignIfUpdated('openaiWebchatAdminKey', ['flows', 'openai', 'targets', 'webchat', 'apiKey']);
+  assignIfUpdated('openaiWebchatUploadEnabled', ['flows', 'openai', 'webchatUpload', 'enabled']);
 
   if (hasUpdate('stepExecutionRangeByFlow') && isPlainObjectValue(updates.stepExecutionRangeByFlow)) {
     Object.entries(updates.stepExecutionRangeByFlow).forEach(([rawFlowId, range]) => {
@@ -11073,6 +11098,7 @@ const AUTO_RUN_BACKGROUND_COMPLETED_STEP_KEYS = new Set([
   'plus-checkout-return',
   'sub2api-session-import',
   'cpa-session-import',
+  'openai-upload-session-to-webchat',
   'oauth-login',
   'fetch-login-code',
   'post-login-phone-verification',
@@ -14266,6 +14292,22 @@ const grokWebchat2ApiPublisher = self.MultiPageBackgroundGrokPublisherWebchat2Ap
   getState,
   setState,
 });
+const openAiWebchatPublisher = self.MultiPageBackgroundOpenAiPublisherWebchat?.createOpenAiWebchatPublisher({
+  addLog,
+  broadcastDataUpdate,
+  chrome,
+  completeNodeFromBackground,
+  ensureContentScriptReadyOnTabUntilStopped,
+  fetchImpl: typeof fetch === 'function' ? fetch.bind(globalThis) : null,
+  getState,
+  getTabId,
+  isTabAlive,
+  registerTab,
+  sendTabMessageUntilStopped,
+  setState,
+  sleepWithStop,
+  waitForTabCompleteUntilStopped,
+});
 const step10Executor = self.MultiPageBackgroundStep10?.createStep10Executor({
   addLog,
   chrome,
@@ -14341,6 +14383,7 @@ const stepExecutorsByKey = {
   'plus-checkout-return': (state) => plusReturnConfirmExecutor.executePlusReturnConfirm(state),
   'sub2api-session-import': (state) => sub2ApiSessionImportExecutor.executeSub2ApiSessionImport(state),
   'cpa-session-import': (state) => cpaSessionImportExecutor.executeCpaSessionImport(state),
+  'openai-upload-session-to-webchat': (state) => openAiWebchatPublisher.executeOpenAiUploadSessionToWebchat(state),
   'oauth-login': (state) => step7Executor.executeStep7(state),
   'fetch-login-code': (state) => step8Executor.executeStep8(state),
   'post-login-phone-verification': (state) => step8Executor.executePostLoginPhoneVerification(state),

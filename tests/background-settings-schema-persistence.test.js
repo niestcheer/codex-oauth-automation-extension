@@ -90,6 +90,9 @@ const SETTINGS_SCHEMA_VIEW_KEYS = Object.freeze([
   'ipProxyMode',
   'kiroRsUrl',
   'kiroRsKey',
+  'openaiWebchatUrl',
+  'openaiWebchatAdminKey',
+  'openaiWebchatUploadEnabled',
   'stepExecutionRangeByFlow',
 ]);
 const SETTINGS_SCHEMA_VIEW_KEY_SET = new Set(SETTINGS_SCHEMA_VIEW_KEYS);
@@ -111,6 +114,13 @@ const PERSISTED_SETTING_DEFAULTS = {
   ipProxyMode: 'account',
   kiroRsUrl: '',
   kiroRsKey: '',
+  openaiWebchatUrl: '',
+  openaiWebchatAdminKey: '',
+  openaiWebchatUploadEnabled: false,
+  openaiWebchatUploadStatus: '',
+  openaiWebchatUploadedAt: 0,
+  openaiWebchatUploadMessage: '',
+  openaiWebchatTargetUrl: '',
   phoneSmsProvider: 'hero-sms',
   madaoBaseUrl: DEFAULT_MADAO_BASE_URL,
   madaoHttpSecret: '',
@@ -299,12 +309,18 @@ test('buildPersistentSettingsPayload writes canonical settings schema into persi
     activeFlowId: 'kiro',
     kiroRsUrl: 'https://kiro.example.com/admin',
     kiroRsKey: 'secret-key',
+    openaiWebchatUrl: ' https://webchat.example.com/admin ',
+    openaiWebchatAdminKey: ' webchat-key ',
+    openaiWebchatUploadEnabled: true,
   }, { fillDefaults: true });
 
   assert.equal(payload.activeFlowId, 'kiro');
   assert.equal(payload.targetId, 'kiro-rs');
   assert.equal(payload.kiroRsUrl, 'https://kiro.example.com/admin');
   assert.equal(payload.kiroRsKey, 'secret-key');
+  assert.equal(payload.openaiWebchatUrl, 'https://webchat.example.com/admin');
+  assert.equal(payload.openaiWebchatAdminKey, 'webchat-key');
+  assert.equal(payload.openaiWebchatUploadEnabled, true);
   assert.equal(payload.phoneSmsProvider, 'hero-sms');
   assert.equal(payload.madaoBaseUrl, DEFAULT_MADAO_BASE_URL_FOR_TEST);
   assert.equal(payload.madaoMode, DEFAULT_MADAO_MODE_FOR_TEST);
@@ -315,6 +331,9 @@ test('buildPersistentSettingsPayload writes canonical settings schema into persi
   assert.equal(payload.settingsSchemaVersion, 5);
   assert.equal(payload.settingsState.activeFlowId, 'kiro');
   assert.equal(payload.settingsState.flows.kiro.selectedTargetId, 'kiro-rs');
+  assert.equal(payload.settingsState.flows.openai.targets.webchat.baseUrl, 'https://webchat.example.com/admin');
+  assert.equal(payload.settingsState.flows.openai.targets.webchat.apiKey, 'webchat-key');
+  assert.equal(payload.settingsState.flows.openai.webchatUpload.enabled, true);
   assert.equal(
     payload.settingsState.flows.kiro.targets['kiro-rs'].baseUrl,
     'https://kiro.example.com/admin'

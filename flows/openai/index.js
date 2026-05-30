@@ -35,7 +35,8 @@
     "supportedTargetIds": [
       "cpa",
       "sub2api",
-      "codex2api"
+      "codex2api",
+      "webchat"
     ],
     "supportsLuckmail": true,
     "canSwitchFlow": true,
@@ -47,7 +48,8 @@
     "openai-phone",
     "shared-auto-run",
     "openai-oauth",
-    "openai-step6"
+    "openai-step6",
+    "openai-webchat-upload"
   ],
   "targets": {
     "cpa": {
@@ -91,6 +93,17 @@
       "groups": [
         "openai-target-codex2api"
       ]
+    },
+    "webchat": {
+      "id": "webchat",
+      "label": "webchat",
+      "defaultState": {
+        "baseUrl": "",
+        "apiKey": ""
+      },
+      "groups": [
+        "openai-target-webchat"
+      ]
     }
   },
   "settingsDefaults": {
@@ -113,6 +126,9 @@
         "fromStep": 1,
         "toStep": 11
       }
+    },
+    "webchatUpload": {
+      "enabled": false
     }
   },
   "runtimeSources": {
@@ -257,6 +273,16 @@
         }
       ]
     },
+    "openai-webchat": {
+      "flowId": "openai",
+      "kind": "remote-publisher",
+      "label": "webchat",
+      "readyPolicy": "disabled",
+      "family": "openai-webchat-family",
+      "driverId": "flows/openai/background/publisher-webchat",
+      "cleanupScopes": [],
+      "familyMatchers": []
+    },
     "plus-checkout": {
       "flowId": "openai",
       "kind": "flow-page",
@@ -371,6 +397,12 @@
       "commands": [
         "gopay-subscription-confirm"
       ]
+    },
+    "flows/openai/background/publisher-webchat": {
+      "sourceId": "openai-webchat",
+      "commands": [
+        "openai-upload-session-to-webchat"
+      ]
     }
   },
   "defaultTargetId": "cpa",
@@ -402,6 +434,23 @@
       "rowIds": [
         "row-codex2api-url",
         "row-codex2api-admin-key"
+      ]
+    },
+    "openai-target-webchat": {
+      "id": "openai-target-webchat",
+      "label": "webchat 来源",
+      "rowIds": [
+        "row-openai-webchat-url",
+        "row-openai-webchat-key",
+        "row-openai-webchat-upload-status"
+      ]
+    },
+    "openai-webchat-upload": {
+      "id": "openai-webchat-upload",
+      "label": "webchat 同步",
+      "rowIds": [
+        "row-openai-webchat-upload-toggle",
+        "row-openai-webchat-upload-status"
       ]
     },
     "openai-plus": {
@@ -456,6 +505,13 @@
       ]
     },
     "codex2api": {
+      "supportsPhoneSignup": true,
+      "requiresPhoneSignupWarning": false,
+      "supportedPlusAccountAccessStrategies": [
+        "oauth"
+      ]
+    },
+    "webchat": {
       "supportsPhoneSignup": true,
       "requiresPhoneSignupWarning": false,
       "supportedPlusAccountAccessStrategies": [

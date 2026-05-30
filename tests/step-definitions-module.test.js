@@ -471,6 +471,43 @@ test('OpenAI OAuth workflow removes post-login phone verification when phone ver
   });
 });
 
+test('OpenAI webchat upload is appended only for webchat target or explicit sync toggle', () => {
+  const globalScope = {};
+  const api = new Function('self', `${readStepDefinitionsBundle()}; return self.MultiPageStepDefinitions;`)(globalScope);
+
+  const normalKeys = api.getSteps({ targetId: 'cpa' }).map((step) => step.key);
+  assert.equal(normalKeys.includes('openai-upload-session-to-webchat'), false);
+
+  const webchatSteps = api.getSteps({ targetId: 'webchat' });
+  const webchatNodes = api.getNodes({ targetId: 'webchat' });
+  assert.equal(webchatSteps.at(-1)?.key, 'openai-upload-session-to-webchat');
+  assert.equal(webchatSteps.at(-1)?.sourceId, 'openai-webchat');
+  assert.equal(webchatSteps.at(-1)?.driverId, 'flows/openai/background/publisher-webchat');
+  assert.deepStrictEqual(
+    webchatNodes.find((node) => node.nodeId === 'platform-verify')?.next,
+    ['openai-upload-session-to-webchat']
+  );
+  assert.deepStrictEqual(webchatNodes.at(-1)?.next, []);
+
+  const cpaSyncSteps = api.getSteps({
+    targetId: 'cpa',
+    openaiWebchatUploadEnabled: true,
+  });
+  assert.equal(cpaSyncSteps.at(-1)?.key, 'openai-upload-session-to-webchat');
+
+  const schemaSyncSteps = api.getSteps({
+    targetId: 'sub2api',
+    settingsState: {
+      flows: {
+        openai: {
+          webchatUpload: { enabled: true },
+        },
+      },
+    },
+  });
+  assert.equal(schemaSyncSteps.at(-1)?.key, 'openai-upload-session-to-webchat');
+});
+
 test('Plus session strategy swaps the OAuth tail for a single SUB2API import node', () => {
   const globalScope = {};
   const api = new Function('self', `${readStepDefinitionsBundle()}; return self.MultiPageStepDefinitions;`)(globalScope);
