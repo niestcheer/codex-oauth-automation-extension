@@ -163,6 +163,44 @@ test('MaDao poll extracts codes from nested messages and reports pending status'
   assert.equal(code, '765432');
 });
 
+test('MaDao timed poll tolerates transient fetch failures while waiting for code', async () => {
+  const statusEvents = [];
+  const waitEvents = [];
+  const requests = [];
+  const provider = api.createProvider({
+    fetchImpl: async (_url, options = {}) => {
+      requests.push(JSON.parse(options.body));
+      if (requests.length === 1) {
+        throw new TypeError('Failed to fetch');
+      }
+      return createJsonResponse({
+        sms: [
+          { text: 'OpenAI verification code: 246810' },
+        ],
+      });
+    },
+  });
+
+  const code = await provider.pollActivationCode({}, { activationId: 'retry-ticket' }, {
+    timeoutMs: 5000,
+    intervalMs: 1,
+    maxRounds: 3,
+    onStatus: async (event) => statusEvents.push(event),
+    onWaitingForCode: async (event) => waitEvents.push(event),
+  }, {
+    sleepWithStop: async () => {},
+  });
+
+  assert.equal(code, '246810');
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests.map((body) => body.ticket_id), ['retry-ticket', 'retry-ticket']);
+  assert.equal(statusEvents.length, 2);
+  assert.equal(statusEvents[0].pollCount, 1);
+  assert.match(statusEvents[0].statusText, /network_error: Failed to fetch/);
+  assert.equal(waitEvents.length, 1);
+  assert.equal(waitEvents[0].pollCount, 1);
+});
+
 test('MaDao direct rotate releases the current ticket without acquiring a new one', async () => {
   const requests = [];
   const provider = api.createProvider({

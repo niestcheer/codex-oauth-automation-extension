@@ -448,6 +448,16 @@
     });
   }
 
+  function isTransientPollNetworkError(error) {
+    if (error?.status) {
+      return false;
+    }
+    const name = normalizeText(error?.name);
+    const message = normalizeText(error?.message || error);
+    return /^(?:TypeError|AbortError)$/i.test(name)
+      || /Failed to fetch|NetworkError|Load failed|fetch failed|ERR_(?:CONNECTION|NETWORK|TIMED_OUT)|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|request timeout|timed?\s*out|aborted|\u8bf7\u6c42\u8d85\u65f6/i.test(message);
+  }
+
   async function pollActivationCode(state = {}, activation, options = {}, deps = {}) {
     const configuredTimeoutMs = Number(options.timeoutMs);
     const timeoutMs = Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
@@ -479,7 +489,37 @@
         break;
       }
       deps.throwIfStopped?.();
-      const payload = await pollActivation(state, activation, deps);
+      let payload = null;
+      try {
+        payload = await pollActivation(state, activation, deps);
+      } catch (error) {
+        if (!isTransientPollNetworkError(error)) {
+          throw error;
+        }
+        pollCount += 1;
+        const statusText = `network_error: ${normalizeText(error?.message || error, 'request failed')}`;
+        lastResponse = statusText;
+        if (typeof options.onStatus === 'function') {
+          await options.onStatus({
+            activation,
+            elapsedMs: Date.now() - start,
+            pollCount,
+            statusText,
+            timeoutMs,
+          });
+        }
+        if (typeof options.onWaitingForCode === 'function') {
+          await options.onWaitingForCode({
+            activation,
+            elapsedMs: Date.now() - start,
+            pollCount,
+            statusText,
+            timeoutMs,
+          });
+        }
+        await deps.sleepWithStop?.(intervalMs);
+        continue;
+      }
       const code = extractCodeFromPollPayload(payload);
       const statusText = normalizeText(
         payload?.status
